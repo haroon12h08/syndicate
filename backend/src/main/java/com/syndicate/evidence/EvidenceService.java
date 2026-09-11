@@ -5,6 +5,7 @@ import com.syndicate.common.ChecksumUtil;
 import com.syndicate.common.ResourceNotFoundException;
 import com.syndicate.evidence.dto.EvidenceDto;
 import com.syndicate.ingestion.EvidenceExtractionPublisher;
+import com.syndicate.ingestion.PageImageCache;
 import com.syndicate.user.User;
 import com.syndicate.workstream.Workstream;
 import com.syndicate.workstream.WorkstreamService;
@@ -27,13 +28,16 @@ public class EvidenceService {
     private final WorkstreamService workstreamService;
     private final FileStorageService fileStorageService;
     private final EvidenceExtractionPublisher extractionPublisher;
+    private final PageImageCache pageImageCache;
 
     public EvidenceService(EvidenceRepository evidenceRepository, WorkstreamService workstreamService,
-                            FileStorageService fileStorageService, EvidenceExtractionPublisher extractionPublisher) {
+                            FileStorageService fileStorageService, EvidenceExtractionPublisher extractionPublisher,
+                            PageImageCache pageImageCache) {
         this.evidenceRepository = evidenceRepository;
         this.workstreamService = workstreamService;
         this.fileStorageService = fileStorageService;
         this.extractionPublisher = extractionPublisher;
+        this.pageImageCache = pageImageCache;
     }
 
     @Transactional
@@ -97,5 +101,26 @@ public class EvidenceService {
         workstreamService.requireAccess(evidence.getWorkstream().getId(), callerId);
         fileStorageService.delete(evidence.getStoragePath());
         evidenceRepository.delete(evidence);
+    }
+
+    @Transactional
+    public EvidenceDto reprocess(UUID evidenceId, UUID callerId) {
+        Evidence evidence = findEvidence(evidenceId);
+        workstreamService.requireAccess(evidence.getWorkstream().getId(), callerId);
+        evidence.setProcessingStatus(ProcessingStatus.PENDING);
+        evidence.setProcessingError(null);
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                extractionPublisher.publishExtractionJob(evidence.getId());
+            }
+        });
+        return EvidenceDto.from(evidence);
+    }
+
+    public Resource loadPageImage(UUID evidenceId, int pageNumber, UUID callerId) {
+        Evidence evidence = findEvidence(evidenceId);
+        workstreamService.requireAccess(evidence.getWorkstream().getId(), callerId);
+        return pageImageCache.load(evidenceId, pageNumber);
     }
 }
