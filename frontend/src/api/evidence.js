@@ -1,4 +1,4 @@
-import { apiDelete, apiDownload, apiGet, apiUpload } from './client';
+import { apiDelete, apiDownload, apiGet, apiImageBlobUrl, apiPost, apiUpload } from './client';
 
 export function listEvidence(workstreamId) {
   return apiGet(`/workstreams/${workstreamId}/evidence`);
@@ -17,4 +17,12 @@ export function downloadEvidence(id) {
 
 export function deleteEvidence(id) {
   return apiDelete(`/evidence/${id}`);
+}
+
+export function reprocessEvidence(id) {
+  return apiPost(`/evidence/${id}/reprocess`);
+}
+
+export function pageImageUrl(evidenceId, pageNumber) {
+  return apiImageBlobUrl(`/evidence/${evidenceId}/pages/${pageNumber}/image`);
 }
