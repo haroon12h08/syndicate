@@ -1,5 +1,7 @@
 package com.syndicate.evidence;
 
+import com.syndicate.common.BadRequestException;
+import com.syndicate.common.ChecksumUtil;
 import com.syndicate.common.ResourceNotFoundException;
 import com.syndicate.evidence.dto.EvidenceDto;
 import com.syndicate.user.User;
@@ -10,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.UUID;
 
@@ -32,15 +35,24 @@ public class EvidenceService {
     public EvidenceDto upload(UUID workstreamId, MultipartFile file, EvidenceDocumentType documentType, User caller) {
         workstreamService.requireAccess(workstreamId, caller.getId());
         Workstream workstream = workstreamService.findWorkstream(workstreamId);
-        String storedName = fileStorageService.store(file);
+        byte[] content;
+        try {
+            content = file.getBytes();
+        } catch (IOException e) {
+            throw new BadRequestException("Failed to read uploaded file");
+        }
+        String originalFilename = file.getOriginalFilename() == null ? "file" : file.getOriginalFilename();
+        String storedName = fileStorageService.store(content, originalFilename);
+        String sha256 = ChecksumUtil.sha256Hex(content);
         Evidence evidence = new Evidence(
                 workstream,
-                file.getOriginalFilename() == null ? "file" : file.getOriginalFilename(),
+                originalFilename,
                 storedName,
                 file.getContentType() == null ? "application/octet-stream" : file.getContentType(),
                 file.getSize(),
                 documentType,
-                caller
+                caller,
+                sha256
         );
         return EvidenceDto.from(evidenceRepository.save(evidence));
     }
