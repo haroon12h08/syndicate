@@ -21,6 +21,22 @@ until docker exec syndicate-db pg_isready -U syndicate >/dev/null 2>&1; do
 done
 echo " ready"
 
+echo "== RabbitMQ =="
+if docker ps --format '{{.Names}}' | grep -q '^syndicate-mq$'; then
+  echo "already running"
+elif docker ps -a --format '{{.Names}}' | grep -q '^syndicate-mq$'; then
+  docker start syndicate-mq
+else
+  docker run -d --name syndicate-mq -p 5672:5672 -p 15672:15672 rabbitmq:3-management
+fi
+
+echo -n "Waiting for RabbitMQ..."
+until docker exec syndicate-mq rabbitmq-diagnostics -q ping >/dev/null 2>&1; do
+  echo -n "."
+  sleep 1
+done
+echo " ready"
+
 echo "== Backend =="
 (cd "$ROOT_DIR/backend" && mvn -q spring-boot:run) &
 BACKEND_PID=$!
@@ -52,6 +68,6 @@ echo "Syndicate is running:"
 echo "  Frontend: http://localhost:5173"
 echo "  Backend:  http://localhost:8080/api"
 echo ""
-echo "Press Ctrl+C to stop everything (Postgres container keeps running for next time)."
+echo "Press Ctrl+C to stop everything (Postgres and RabbitMQ containers keep running for next time)."
 
 wait

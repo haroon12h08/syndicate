@@ -49,6 +49,16 @@ public class Evidence extends BaseEntity {
     @Column(name = "uploaded_at", nullable = false)
     private Instant uploadedAt;
 
+    @Column(name = "file_sha256")
+    private String fileSha256;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "processing_status", nullable = false)
+    private ProcessingStatus processingStatus;
+
+    @Column(name = "processing_error", columnDefinition = "TEXT")
+    private String processingError;
+
     @ManyToMany(mappedBy = "evidence", fetch = FetchType.LAZY)
     private Set<Fact> facts = new HashSet<>();
 
@@ -56,7 +66,7 @@ public class Evidence extends BaseEntity {
     }
 
     public Evidence(Workstream workstream, String fileName, String storagePath, String contentType,
-                     long fileSizeBytes, EvidenceDocumentType documentType, User uploadedByUser) {
+                     long fileSizeBytes, EvidenceDocumentType documentType, User uploadedByUser, String fileSha256) {
         this.workstream = workstream;
         this.fileName = fileName;
         this.storagePath = storagePath;
@@ -65,6 +75,8 @@ public class Evidence extends BaseEntity {
         this.documentType = documentType;
         this.uploadedByUser = uploadedByUser;
         this.uploadedAt = Instant.now();
+        this.fileSha256 = fileSha256;
+        this.processingStatus = ProcessingStatus.PENDING;
     }
 
     public Workstream getWorkstream() {
@@ -97,5 +109,25 @@ public class Evidence extends BaseEntity {
 
     public Instant getUploadedAt() {
         return uploadedAt;
+    }
+
+    public String getFileSha256() {
+        return fileSha256;
+    }
+
+    public ProcessingStatus getProcessingStatus() {
+        return processingStatus;
+    }
+
+    public void setProcessingStatus(ProcessingStatus processingStatus) {
+        this.processingStatus = processingStatus;
+    }
+
+    public String getProcessingError() {
+        return processingError;
+    }
+
+    public void setProcessingError(String processingError) {
+        this.processingError = processingError;
     }
 }
