@@ -16,7 +16,7 @@ export default function LoginPage() {
     setSubmitting(true);
     try {
       await login(email, password);
-      navigate('/companies');
+      navigate('/home');
     } catch (err) {
       setError(err.message);
     } finally {
