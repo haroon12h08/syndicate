@@ -27,8 +27,8 @@ class TokenCollectingStripper extends PDFTextStripper {
         StringBuilder word = new StringBuilder();
         float minX = Float.MAX_VALUE;
         float minY = Float.MAX_VALUE;
-        float maxX = Float.MIN_VALUE;
-        float maxY = Float.MIN_VALUE;
+        float maxX = -Float.MAX_VALUE;
+        float maxY = -Float.MAX_VALUE;
 
         for (TextPosition tp : textPositions) {
             if (tp.getUnicode() == null || tp.getUnicode().isBlank()) {
@@ -36,13 +36,13 @@ class TokenCollectingStripper extends PDFTextStripper {
                 word.setLength(0);
                 minX = Float.MAX_VALUE;
                 minY = Float.MAX_VALUE;
-                maxX = Float.MIN_VALUE;
-                maxY = Float.MIN_VALUE;
+                maxX = -Float.MAX_VALUE;
+                maxY = -Float.MAX_VALUE;
                 continue;
             }
             word.append(tp.getUnicode());
             minX = Math.min(minX, tp.getX());
-            minY = Math.min(minY, tp.getY());
+            minY = Math.min(minY, tp.getY() - tp.getHeight());
             maxX = Math.max(maxX, tp.getX() + tp.getWidth());
             maxY = Math.max(maxY, tp.getY());
         }

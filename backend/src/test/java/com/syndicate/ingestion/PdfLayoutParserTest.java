@@ -47,6 +47,11 @@ class PdfLayoutParserTest {
         // both tokens are within the rendered image bounds
         assertThat(topToken.get().x()).isBetween(0.0, (double) page.imageWidth);
         assertThat(topToken.get().y()).isBetween(0.0, (double) page.imageHeight);
+
+        // 18pt text rendered at 200 DPI should have a real, non-trivial glyph
+        // height (~50px) -- not the near-zero (~2.78px) height produced by the
+        // baseline-only bounding-box bug this test guards against.
+        assertThat(topToken.get().height()).isGreaterThan(20.0);
     }
 
     @Test

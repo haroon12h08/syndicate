@@ -68,6 +68,6 @@ echo "Syndicate is running:"
 echo "  Frontend: http://localhost:5173"
 echo "  Backend:  http://localhost:8080/api"
 echo ""
-echo "Press Ctrl+C to stop everything (Postgres container keeps running for next time)."
+echo "Press Ctrl+C to stop everything (Postgres and RabbitMQ containers keep running for next time)."
 
 wait

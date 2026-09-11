@@ -16,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -101,7 +102,9 @@ public class EvidenceExtractionService {
                 throw new IOException("Could not decode image content");
             }
             List<DocumentToken> tokens = tesseractOcrRunner.run(content, 1, image.getWidth(), image.getHeight());
-            persistCandidates(evidence, candidateFactMatcher.match(tokens), Map.of(1, content));
+            ByteArrayOutputStream pngOut = new ByteArrayOutputStream();
+            ImageIO.write(image, "png", pngOut);
+            persistCandidates(evidence, candidateFactMatcher.match(tokens), Map.of(1, pngOut.toByteArray()));
 
         } else {
             evidence.setProcessingStatus(ProcessingStatus.NOT_APPLICABLE);

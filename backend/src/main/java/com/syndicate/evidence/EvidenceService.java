@@ -1,5 +1,6 @@
 package com.syndicate.evidence;
 
+import com.syndicate.candidatefact.CandidateFactRepository;
 import com.syndicate.common.BadRequestException;
 import com.syndicate.common.ChecksumUtil;
 import com.syndicate.common.ResourceNotFoundException;
@@ -9,6 +10,8 @@ import com.syndicate.ingestion.PageImageCache;
 import com.syndicate.user.User;
 import com.syndicate.workstream.Workstream;
 import com.syndicate.workstream.WorkstreamService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,20 +27,27 @@ import java.util.UUID;
 @Transactional
 public class EvidenceService {
 
+    private static final Logger log = LoggerFactory.getLogger(EvidenceService.class);
+
     private final EvidenceRepository evidenceRepository;
     private final WorkstreamService workstreamService;
     private final FileStorageService fileStorageService;
     private final EvidenceExtractionPublisher extractionPublisher;
     private final PageImageCache pageImageCache;
+    private final CandidateFactRepository candidateFactRepository;
+    private final EvidenceFailureRecorder failureRecorder;
 
     public EvidenceService(EvidenceRepository evidenceRepository, WorkstreamService workstreamService,
                             FileStorageService fileStorageService, EvidenceExtractionPublisher extractionPublisher,
-                            PageImageCache pageImageCache) {
+                            PageImageCache pageImageCache, CandidateFactRepository candidateFactRepository,
+                            EvidenceFailureRecorder failureRecorder) {
         this.evidenceRepository = evidenceRepository;
         this.workstreamService = workstreamService;
         this.fileStorageService = fileStorageService;
         this.extractionPublisher = extractionPublisher;
         this.pageImageCache = pageImageCache;
+        this.candidateFactRepository = candidateFactRepository;
+        this.failureRecorder = failureRecorder;
     }
 
     @Transactional
@@ -67,7 +77,7 @@ public class EvidenceService {
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
             public void afterCommit() {
-                extractionPublisher.publishExtractionJob(saved.getId());
+                publishExtractionJobSafely(saved.getId());
             }
         });
         return EvidenceDto.from(saved);
@@ -99,6 +109,8 @@ public class EvidenceService {
     public void delete(UUID evidenceId, UUID callerId) {
         Evidence evidence = findEvidence(evidenceId);
         workstreamService.requireAccess(evidence.getWorkstream().getId(), callerId);
+        candidateFactRepository.deleteByEvidenceId(evidenceId);
+        pageImageCache.deleteAll(evidenceId);
         fileStorageService.delete(evidence.getStoragePath());
         evidenceRepository.delete(evidence);
     }
@@ -112,7 +124,7 @@ public class EvidenceService {
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
             public void afterCommit() {
-                extractionPublisher.publishExtractionJob(evidence.getId());
+                publishExtractionJobSafely(evidence.getId());
             }
         });
         return EvidenceDto.from(evidence);
@@ -122,5 +134,22 @@ public class EvidenceService {
         Evidence evidence = findEvidence(evidenceId);
         workstreamService.requireAccess(evidence.getWorkstream().getId(), callerId);
         return pageImageCache.load(evidenceId, pageNumber);
+    }
+
+    /**
+     * Publishes the extraction job after the enclosing transaction has committed.
+     * If publishing fails (e.g. the message broker is unreachable), the evidence
+     * would otherwise be stuck at PENDING forever with no recovery path, since the
+     * frontend's Retry action only surfaces for FAILED evidence. Instead, mark the
+     * evidence FAILED (in a fresh transaction, since the original has committed)
+     * so the existing Retry flow can recover it.
+     */
+    private void publishExtractionJobSafely(UUID evidenceId) {
+        try {
+            extractionPublisher.publishExtractionJob(evidenceId);
+        } catch (Exception e) {
+            log.error("Failed to publish extraction job for evidence {}", evidenceId, e);
+            failureRecorder.markExtractionQueueFailure(evidenceId, e);
+        }
     }
 }

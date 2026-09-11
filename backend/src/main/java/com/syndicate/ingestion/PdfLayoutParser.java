@@ -65,7 +65,7 @@ public class PdfLayoutParser {
                                 PdfCoordinateConverter.toPixelX(t.x()),
                                 PdfCoordinateConverter.toPixelY(t.y()),
                                 PdfCoordinateConverter.toPixelX(t.width()),
-                                PdfCoordinateConverter.toPixelX(t.height()),
+                                PdfCoordinateConverter.toPixelY(t.height()),
                                 image.getWidth(), image.getHeight(), CandidateFactSource.TEXT_LAYER))
                         .toList();
 
