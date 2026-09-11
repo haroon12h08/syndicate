@@ -8,6 +8,7 @@ import org.springframework.stereotype.Component;
 
 import java.io.IOException;
 import java.net.MalformedURLException;
+import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.UUID;
@@ -48,6 +49,17 @@ public class PageImageCache {
             return new UrlResource(file.toUri());
         } catch (MalformedURLException e) {
             throw new IllegalStateException("Invalid cached image path", e);
+        }
+    }
+
+    public void deleteAll(UUID evidenceId) {
+        String glob = evidenceId + "-page-*.png";
+        try (DirectoryStream<Path> stream = Files.newDirectoryStream(root, glob)) {
+            for (Path file : stream) {
+                Files.deleteIfExists(file);
+            }
+        } catch (IOException e) {
+            throw new IllegalStateException("Failed to delete cached page images for evidence " + evidenceId, e);
         }
     }
 
