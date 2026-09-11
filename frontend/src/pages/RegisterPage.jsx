@@ -26,7 +26,7 @@ export default function RegisterPage() {
     setSubmitting(true);
     try {
       await register(form);
-      navigate('/companies');
+      navigate('/home');
     } catch (err) {
       setError(err.message);
     } finally {

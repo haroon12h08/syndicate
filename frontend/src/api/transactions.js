@@ -4,6 +4,10 @@ export function listTransactionsForCompany(companyId) {
   return apiGet(`/companies/${companyId}/transactions`);
 }
 
+export function listMyTransactions() {
+  return apiGet('/transactions');
+}
+
 export function createTransaction(companyId, payload) {
   return apiPost(`/companies/${companyId}/transactions`, payload);
 }
