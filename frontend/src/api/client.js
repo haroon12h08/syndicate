@@ -91,3 +91,12 @@ export async function apiDownload(path) {
   a.remove();
   window.URL.revokeObjectURL(url);
 }
+
+export async function apiImageBlobUrl(path) {
+  const response = await fetch(`${BASE_URL}${path}`, { headers: authHeaders() });
+  if (!response.ok) {
+    throw new Error('Failed to load image');
+  }
+  const blob = await response.blob();
+  return window.URL.createObjectURL(blob);
+}

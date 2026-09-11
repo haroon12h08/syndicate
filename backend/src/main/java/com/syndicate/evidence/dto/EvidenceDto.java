@@ -2,6 +2,7 @@ package com.syndicate.evidence.dto;
 
 import com.syndicate.evidence.Evidence;
 import com.syndicate.evidence.EvidenceDocumentType;
+import com.syndicate.evidence.ProcessingStatus;
 import com.syndicate.user.UserDto;
 
 import java.time.Instant;
@@ -15,7 +16,10 @@ public record EvidenceDto(
         long fileSizeBytes,
         EvidenceDocumentType documentType,
         UserDto uploadedBy,
-        Instant uploadedAt
+        Instant uploadedAt,
+        String fileSha256,
+        ProcessingStatus processingStatus,
+        String processingError
 ) {
     public static EvidenceDto from(Evidence evidence) {
         return new EvidenceDto(
@@ -26,7 +30,10 @@ public record EvidenceDto(
                 evidence.getFileSizeBytes(),
                 evidence.getDocumentType(),
                 UserDto.from(evidence.getUploadedByUser()),
-                evidence.getUploadedAt()
+                evidence.getUploadedAt(),
+                evidence.getFileSha256(),
+                evidence.getProcessingStatus(),
+                evidence.getProcessingError()
         );
     }
 }

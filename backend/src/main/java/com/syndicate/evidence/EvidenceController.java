@@ -63,4 +63,16 @@ public class EvidenceController {
     public void delete(@PathVariable UUID id, @AuthenticationPrincipal User currentUser) {
         evidenceService.delete(id, currentUser.getId());
     }
+
+    @PostMapping("/api/evidence/{id}/reprocess")
+    public EvidenceDto reprocess(@PathVariable UUID id, @AuthenticationPrincipal User currentUser) {
+        return evidenceService.reprocess(id, currentUser.getId());
+    }
+
+    @GetMapping("/api/evidence/{id}/pages/{pageNumber}/image")
+    public ResponseEntity<Resource> pageImage(@PathVariable UUID id, @PathVariable int pageNumber,
+                                               @AuthenticationPrincipal User currentUser) {
+        Resource resource = evidenceService.loadPageImage(id, pageNumber, currentUser.getId());
+        return ResponseEntity.ok().contentType(MediaType.IMAGE_PNG).body(resource);
+    }
 }
