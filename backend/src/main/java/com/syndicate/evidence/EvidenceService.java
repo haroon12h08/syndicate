@@ -4,6 +4,7 @@ import com.syndicate.common.BadRequestException;
 import com.syndicate.common.ChecksumUtil;
 import com.syndicate.common.ResourceNotFoundException;
 import com.syndicate.evidence.dto.EvidenceDto;
+import com.syndicate.ingestion.EvidenceExtractionPublisher;
 import com.syndicate.user.User;
 import com.syndicate.workstream.Workstream;
 import com.syndicate.workstream.WorkstreamService;
@@ -23,12 +24,14 @@ public class EvidenceService {
     private final EvidenceRepository evidenceRepository;
     private final WorkstreamService workstreamService;
     private final FileStorageService fileStorageService;
+    private final EvidenceExtractionPublisher extractionPublisher;
 
     public EvidenceService(EvidenceRepository evidenceRepository, WorkstreamService workstreamService,
-                            FileStorageService fileStorageService) {
+                            FileStorageService fileStorageService, EvidenceExtractionPublisher extractionPublisher) {
         this.evidenceRepository = evidenceRepository;
         this.workstreamService = workstreamService;
         this.fileStorageService = fileStorageService;
+        this.extractionPublisher = extractionPublisher;
     }
 
     @Transactional
@@ -54,7 +57,9 @@ public class EvidenceService {
                 caller,
                 sha256
         );
-        return EvidenceDto.from(evidenceRepository.save(evidence));
+        Evidence saved = evidenceRepository.save(evidence);
+        extractionPublisher.publishExtractionJob(saved.getId());
+        return EvidenceDto.from(saved);
     }
 
     public List<EvidenceDto> list(UUID workstreamId, UUID callerId) {
