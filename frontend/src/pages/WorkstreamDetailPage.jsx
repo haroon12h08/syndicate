@@ -1,0 +1,340 @@
+import { Fragment, useEffect, useState } from 'react';
+import { useParams } from 'react-router-dom';
+import * as workstreamsApi from '../api/workstreams';
+import * as factsApi from '../api/facts';
+import * as evidenceApi from '../api/evidence';
+import * as issuesApi from '../api/issues';
+import FactForm from '../components/FactForm';
+import EvidenceUploadForm from '../components/EvidenceUploadForm';
+import IssueForm from '../components/IssueForm';
+import { ISSUE_SEVERITIES, ISSUE_STATUSES, humanize } from '../constants';
+
+function IssueRow({ issue, onUpdate }) {
+  const [status, setStatus] = useState(issue.status);
+  const [severity, setSeverity] = useState(issue.severity);
+  const [resolution, setResolution] = useState(issue.resolution || '');
+  const [saving, setSaving] = useState(false);
+
+  const dirty = status !== issue.status || severity !== issue.severity || resolution !== (issue.resolution || '');
+
+  async function save() {
+    setSaving(true);
+    try {
+      await onUpdate(issue.id, {
+        title: issue.title,
+        description: issue.description,
+        severity,
+        status,
+        ownerUserId: issue.owner?.id || null,
+        dueDate: issue.dueDate,
+        resolution: resolution || null,
+      });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <tr>
+      <td>
+        <strong>{issue.title}</strong>
+        {issue.description && <div className="hint">{issue.description}</div>}
+        {issue.relatedFactIds.length > 0 && <div className="hint">Facts: {issue.relatedFactIds.length}</div>}
+        {issue.relatedEvidenceIds.length > 0 && <div className="hint">Evidence: {issue.relatedEvidenceIds.length}</div>}
+      </td>
+      <td>
+        <select value={severity} onChange={(e) => setSeverity(e.target.value)}>
+          {ISSUE_SEVERITIES.map((s) => <option key={s} value={s}>{humanize(s)}</option>)}
+        </select>
+      </td>
+      <td>
+        <select value={status} onChange={(e) => setStatus(e.target.value)}>
+          {ISSUE_STATUSES.map((s) => <option key={s} value={s}>{humanize(s)}</option>)}
+        </select>
+      </td>
+      <td>
+        <input value={resolution} onChange={(e) => setResolution(e.target.value)} placeholder="resolution notes" />
+      </td>
+      <td>
+        <button disabled={!dirty || saving} onClick={save}>{saving ? 'Saving...' : 'Save'}</button>
+      </td>
+    </tr>
+  );
+}
+
+export default function WorkstreamDetailPage() {
+  const { id } = useParams();
+  const [workstream, setWorkstream] = useState(null);
+  const [facts, setFacts] = useState([]);
+  const [evidence, setEvidence] = useState([]);
+  const [issues, setIssues] = useState([]);
+  const [error, setError] = useState(null);
+
+  const [showFactForm, setShowFactForm] = useState(false);
+  const [correctingFactId, setCorrectingFactId] = useState(null);
+  const [showEvidenceForm, setShowEvidenceForm] = useState(false);
+  const [showIssueForm, setShowIssueForm] = useState(false);
+  const [linkChoice, setLinkChoice] = useState({});
+
+  async function load() {
+    try {
+      const [ws, factList, evidenceList, issueList] = await Promise.all([
+        workstreamsApi.getWorkstream(id),
+        factsApi.listFacts(id),
+        evidenceApi.listEvidence(id),
+        issuesApi.listIssues(id),
+      ]);
+      setWorkstream(ws);
+      setFacts(factList);
+      setEvidence(evidenceList);
+      setIssues(issueList);
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
+
+  async function handleCreateFact(payload) {
+    setError(null);
+    try {
+      await factsApi.createFact(id, payload);
+      setShowFactForm(false);
+      await load();
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    }
+  }
+
+  async function handleSupersedeFact(factId, payload) {
+    setError(null);
+    try {
+      await factsApi.supersedeFact(factId, payload);
+      setCorrectingFactId(null);
+      await load();
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    }
+  }
+
+  async function handleVerifyFact(factId) {
+    setError(null);
+    try {
+      await factsApi.verifyFact(factId);
+      await load();
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  async function handleLinkEvidence(factId) {
+    const evidenceId = linkChoice[factId];
+    if (!evidenceId) return;
+    setError(null);
+    try {
+      await factsApi.linkEvidence(factId, evidenceId);
+      await load();
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  async function handleUnlinkEvidence(factId, evidenceId) {
+    setError(null);
+    try {
+      await factsApi.unlinkEvidence(factId, evidenceId);
+      await load();
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  async function handleUpload(file, documentType) {
+    setError(null);
+    try {
+      await evidenceApi.uploadEvidence(id, file, documentType);
+      setShowEvidenceForm(false);
+      await load();
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    }
+  }
+
+  async function handleDownload(evidenceId) {
+    setError(null);
+    try {
+      await evidenceApi.downloadEvidence(evidenceId);
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  async function handleDeleteEvidence(evidenceId) {
+    setError(null);
+    try {
+      await evidenceApi.deleteEvidence(evidenceId);
+      await load();
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  async function handleCreateIssue(payload) {
+    setError(null);
+    try {
+      await issuesApi.createIssue(id, payload);
+      setShowIssueForm(false);
+      await load();
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    }
+  }
+
+  async function handleUpdateIssue(issueId, payload) {
+    setError(null);
+    try {
+      await issuesApi.updateIssue(issueId, payload);
+      await load();
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  function evidenceNameById(evidenceId) {
+    return evidence.find((e) => e.id === evidenceId)?.fileName || evidenceId;
+  }
+
+  if (!workstream) {
+    return <div className="page">{error || 'Loading...'}</div>;
+  }
+
+  return (
+    <div className="page">
+      <h1>{humanize(workstream.type)}</h1>
+      {workstream.description && <p className="hint">{workstream.description}</p>}
+      {error && <div className="error-banner">{error}</div>}
+
+      <div className="page-header">
+        <h2>Facts</h2>
+        <button onClick={() => setShowFactForm((s) => !s)}>{showFactForm ? 'Cancel' : 'New fact'}</button>
+      </div>
+      {showFactForm && (
+        <FactForm submitLabel="Create fact" onSubmit={handleCreateFact} onCancel={() => setShowFactForm(false)} />
+      )}
+      <table className="data-table">
+        <thead>
+          <tr><th>Label</th><th>Value</th><th>Status</th><th>Version</th><th>Evidence</th><th>Actions</th></tr>
+        </thead>
+        <tbody>
+          {facts.map((f) => (
+            <Fragment key={f.id}>
+              <tr>
+                <td>{f.label}</td>
+                <td>{f.value} {f.unit}</td>
+                <td>{humanize(f.status)}</td>
+                <td>v{f.version}</td>
+                <td>
+                  {f.evidenceIds.length === 0 && <span className="hint">none</span>}
+                  {f.evidenceIds.map((eid) => (
+                    <div key={eid} className="linked-evidence">
+                      {evidenceNameById(eid)}
+                      <button className="link-button" onClick={() => handleUnlinkEvidence(f.id, eid)}>unlink</button>
+                    </div>
+                  ))}
+                  {evidence.length > 0 && (
+                    <div className="inline-form">
+                      <select
+                        value={linkChoice[f.id] || ''}
+                        onChange={(e) => setLinkChoice((c) => ({ ...c, [f.id]: e.target.value }))}
+                      >
+                        <option value="">Link evidence...</option>
+                        {evidence.map((e) => (
+                          <option key={e.id} value={e.id}>{e.fileName}</option>
+                        ))}
+                      </select>
+                      <button onClick={() => handleLinkEvidence(f.id)}>Link</button>
+                    </div>
+                  )}
+                </td>
+                <td>
+                  {f.status === 'DRAFT' && <button onClick={() => handleVerifyFact(f.id)}>Verify</button>}
+                  {f.status !== 'SUPERSEDED' && (
+                    <button onClick={() => setCorrectingFactId(correctingFactId === f.id ? null : f.id)}>
+                      {correctingFactId === f.id ? 'Cancel' : 'Correct'}
+                    </button>
+                  )}
+                </td>
+              </tr>
+              {correctingFactId === f.id && (
+                <tr>
+                  <td colSpan={6}>
+                    <FactForm
+                      initial={{ label: f.label, value: f.value, unit: f.unit || '', period: f.period || '' }}
+                      submitLabel="Save correction (new version)"
+                      onSubmit={(payload) => handleSupersedeFact(f.id, payload)}
+                      onCancel={() => setCorrectingFactId(null)}
+                    />
+                  </td>
+                </tr>
+              )}
+            </Fragment>
+          ))}
+          {facts.length === 0 && <tr><td colSpan={6} className="hint">No facts yet.</td></tr>}
+        </tbody>
+      </table>
+
+      <div className="page-header">
+        <h2>Evidence</h2>
+        <button onClick={() => setShowEvidenceForm((s) => !s)}>{showEvidenceForm ? 'Cancel' : 'Upload evidence'}</button>
+      </div>
+      {showEvidenceForm && (
+        <EvidenceUploadForm onUpload={handleUpload} onCancel={() => setShowEvidenceForm(false)} />
+      )}
+      <table className="data-table">
+        <thead>
+          <tr><th>File</th><th>Type</th><th>Uploaded by</th><th>Actions</th></tr>
+        </thead>
+        <tbody>
+          {evidence.map((e) => (
+            <tr key={e.id}>
+              <td>{e.fileName}</td>
+              <td>{humanize(e.documentType)}</td>
+              <td>{e.uploadedBy.fullName}</td>
+              <td>
+                <button onClick={() => handleDownload(e.id)}>Download</button>
+                <button className="secondary" onClick={() => handleDeleteEvidence(e.id)}>Delete</button>
+              </td>
+            </tr>
+          ))}
+          {evidence.length === 0 && <tr><td colSpan={4} className="hint">No evidence yet.</td></tr>}
+        </tbody>
+      </table>
+
+      <div className="page-header">
+        <h2>Issues</h2>
+        <button onClick={() => setShowIssueForm((s) => !s)}>{showIssueForm ? 'Cancel' : 'New issue'}</button>
+      </div>
+      {showIssueForm && (
+        <IssueForm facts={facts} evidence={evidence} onSubmit={handleCreateIssue} onCancel={() => setShowIssueForm(false)} />
+      )}
+      <table className="data-table">
+        <thead>
+          <tr><th>Issue</th><th>Severity</th><th>Status</th><th>Resolution</th><th></th></tr>
+        </thead>
+        <tbody>
+          {issues.map((i) => (
+            <IssueRow key={i.id} issue={i} onUpdate={handleUpdateIssue} />
+          ))}
+          {issues.length === 0 && <tr><td colSpan={5} className="hint">No issues yet.</td></tr>}
+        </tbody>
+      </table>
+    </div>
+  );
+}
