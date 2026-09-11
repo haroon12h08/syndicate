@@ -5,7 +5,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
 import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.net.MalformedURLException;
@@ -27,11 +26,11 @@ public class FileStorageService {
         }
     }
 
-    public String store(MultipartFile file) {
-        if (file.isEmpty()) {
+    public String store(byte[] content, String originalFilename) {
+        if (content.length == 0) {
             throw new BadRequestException("Uploaded file is empty");
         }
-        String originalName = Path.of(file.getOriginalFilename() == null ? "file" : file.getOriginalFilename())
+        String originalName = Path.of(originalFilename == null ? "file" : originalFilename)
                 .getFileName().toString();
         String storedName = UUID.randomUUID() + "-" + originalName;
         Path target = uploadRoot.resolve(storedName).normalize();
@@ -39,11 +38,23 @@ public class FileStorageService {
             throw new BadRequestException("Invalid file name");
         }
         try {
-            Files.copy(file.getInputStream(), target);
+            Files.write(target, content);
         } catch (IOException e) {
             throw new IllegalStateException("Failed to store file", e);
         }
         return storedName;
+    }
+
+    public byte[] readBytes(String storagePath) {
+        Path file = uploadRoot.resolve(storagePath).normalize();
+        if (!file.startsWith(uploadRoot)) {
+            throw new BadRequestException("Invalid storage path");
+        }
+        try {
+            return Files.readAllBytes(file);
+        } catch (IOException e) {
+            throw new IllegalStateException("Failed to read stored file: " + storagePath, e);
+        }
     }
 
     public Resource load(String storagePath) {
