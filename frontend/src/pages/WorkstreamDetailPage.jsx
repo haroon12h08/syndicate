@@ -4,9 +4,11 @@ import * as workstreamsApi from '../api/workstreams';
 import * as factsApi from '../api/facts';
 import * as evidenceApi from '../api/evidence';
 import * as issuesApi from '../api/issues';
+import * as candidateFactsApi from '../api/candidateFacts';
 import FactForm from '../components/FactForm';
 import EvidenceUploadForm from '../components/EvidenceUploadForm';
 import IssueForm from '../components/IssueForm';
+import CandidateFactCard from '../components/CandidateFactCard';
 import { ISSUE_SEVERITIES, ISSUE_STATUSES, humanize } from '../constants';
 
 function IssueRow({ issue, onUpdate }) {
@@ -68,6 +70,7 @@ export default function WorkstreamDetailPage() {
   const [facts, setFacts] = useState([]);
   const [evidence, setEvidence] = useState([]);
   const [issues, setIssues] = useState([]);
+  const [candidateFacts, setCandidateFacts] = useState([]);
   const [error, setError] = useState(null);
 
   const [showFactForm, setShowFactForm] = useState(false);
@@ -78,16 +81,18 @@ export default function WorkstreamDetailPage() {
 
   async function load() {
     try {
-      const [ws, factList, evidenceList, issueList] = await Promise.all([
+      const [ws, factList, evidenceList, issueList, candidateList] = await Promise.all([
         workstreamsApi.getWorkstream(id),
         factsApi.listFacts(id),
         evidenceApi.listEvidence(id),
         issuesApi.listIssues(id),
+        candidateFactsApi.listCandidateFacts(id, 'PENDING'),
       ]);
       setWorkstream(ws);
       setFacts(factList);
       setEvidence(evidenceList);
       setIssues(issueList);
+      setCandidateFacts(candidateList);
     } catch (err) {
       setError(err.message);
     }
@@ -183,6 +188,42 @@ export default function WorkstreamDetailPage() {
     } catch (err) {
       setError(err.message);
     }
+  }
+
+  async function handleReprocessEvidence(evidenceId) {
+    setError(null);
+    try {
+      await evidenceApi.reprocessEvidence(evidenceId);
+      await load();
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  async function handleAcceptCandidate(candidateId, payload) {
+    setError(null);
+    try {
+      await candidateFactsApi.acceptCandidateFact(candidateId, payload);
+      await load();
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    }
+  }
+
+  async function handleRejectCandidate(candidateId, payload) {
+    setError(null);
+    try {
+      await candidateFactsApi.rejectCandidateFact(candidateId, payload);
+      await load();
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    }
+  }
+
+  function badgeClass(status) {
+    return `badge badge-${status.toLowerCase()}`;
   }
 
   async function handleCreateIssue(payload) {
@@ -299,23 +340,47 @@ export default function WorkstreamDetailPage() {
       )}
       <table className="data-table">
         <thead>
-          <tr><th>File</th><th>Type</th><th>Uploaded by</th><th>Actions</th></tr>
+          <tr><th>File</th><th>Type</th><th>Checksum</th><th>Status</th><th>Uploaded by</th><th>Actions</th></tr>
         </thead>
         <tbody>
           {evidence.map((e) => (
             <tr key={e.id}>
               <td>{e.fileName}</td>
               <td>{humanize(e.documentType)}</td>
+              <td className="hint">{e.fileSha256 ? `${e.fileSha256.slice(0, 12)}...` : '—'}</td>
+              <td>
+                <span className={badgeClass(e.processingStatus)}>{humanize(e.processingStatus)}</span>
+                {e.processingStatus === 'FAILED' && e.processingError && (
+                  <div className="hint">{e.processingError}</div>
+                )}
+              </td>
               <td>{e.uploadedBy.fullName}</td>
               <td>
                 <button onClick={() => handleDownload(e.id)}>Download</button>
+                {e.processingStatus === 'FAILED' && (
+                  <button onClick={() => handleReprocessEvidence(e.id)}>Retry</button>
+                )}
                 <button className="secondary" onClick={() => handleDeleteEvidence(e.id)}>Delete</button>
               </td>
             </tr>
           ))}
-          {evidence.length === 0 && <tr><td colSpan={4} className="hint">No evidence yet.</td></tr>}
+          {evidence.length === 0 && <tr><td colSpan={6} className="hint">No evidence yet.</td></tr>}
         </tbody>
       </table>
+
+      <div className="page-header">
+        <h2>Candidate Facts</h2>
+        <button onClick={load}>Refresh</button>
+      </div>
+      {candidateFacts.length === 0 && <p className="hint">No pending candidate facts.</p>}
+      {candidateFacts.map((c) => (
+        <CandidateFactCard
+          key={c.id}
+          candidate={c}
+          onAccept={handleAcceptCandidate}
+          onReject={handleRejectCandidate}
+        />
+      ))}
 
       <div className="page-header">
         <h2>Issues</h2>
