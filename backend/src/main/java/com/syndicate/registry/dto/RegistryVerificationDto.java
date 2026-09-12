@@ -6,6 +6,7 @@ import java.util.UUID;
 
 public record RegistryVerificationDto(
         UUID companyId,
+        String status,
         String source,
         String lookupKey,
         boolean found,
@@ -23,7 +24,8 @@ public record RegistryVerificationDto(
             String registryValue,
             boolean match,
             String internalSource,
-            UUID issueId
+            UUID issueId,
+            UUID issueWorkstreamId
     ) {
     }
 }

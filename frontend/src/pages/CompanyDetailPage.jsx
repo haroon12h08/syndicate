@@ -3,6 +3,8 @@ import { Link, useParams } from 'react-router-dom';
 import * as companiesApi from '../api/companies';
 import * as organizationsApi from '../api/organizations';
 import * as transactionsApi from '../api/transactions';
+import * as registryApi from '../api/registry';
+import RegistryPanel from '../components/RegistryPanel';
 import { TRANSACTION_ROLES, TRANSACTION_TYPES, humanize } from '../constants';
 
 export default function CompanyDetailPage() {
@@ -11,6 +13,8 @@ export default function CompanyDetailPage() {
   const [transactions, setTransactions] = useState([]);
   const [organizations, setOrganizations] = useState([]);
   const [error, setError] = useState(null);
+  const [registry, setRegistry] = useState(null);
+  const [verifying, setVerifying] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState({
@@ -30,6 +34,7 @@ export default function CompanyDetailPage() {
       setCompany(companyData);
       setTransactions(txns);
       setOrganizations(orgs);
+      registryApi.getRegistryStatus(id).then(setRegistry).catch(() => setRegistry(null));
       setForm((f) => ({ ...f, leadOrganizationId: f.leadOrganizationId || companyData.ownerOrganizationId }));
     } catch (err) {
       setError(err.message);
@@ -40,6 +45,18 @@ export default function CompanyDetailPage() {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  async function handleVerifyRegistry() {
+    setError(null);
+    setVerifying(true);
+    try {
+      setRegistry(await registryApi.verifyRegistry(id));
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setVerifying(false);
+    }
+  }
 
   function update(field, value) {
     setForm((f) => ({ ...f, [field]: value }));
@@ -75,6 +92,12 @@ export default function CompanyDetailPage() {
         <div><strong>Registered office</strong><span>{company.registeredOffice || '—'}</span></div>
         <div><strong>Owner organization</strong><span><Link to={`/organizations/${company.ownerOrganizationId}`}>{company.ownerOrganizationName}</Link></span></div>
       </div>
+
+      <RegistryPanel
+        registry={registry}
+        verifying={verifying}
+        onVerify={handleVerifyRegistry}
+      />
 
       <div className="page-header">
         <h2>Transactions</h2>

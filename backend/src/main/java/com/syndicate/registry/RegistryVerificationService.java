@@ -48,6 +48,11 @@ public class RegistryVerificationService {
     /** Capital is recorded as a fact rather than a company column, so it is matched by label. */
     private static final String AUTHORIZED_CAPITAL_LABEL = "authorized capital";
 
+    public static final String NEVER_RUN = "NEVER_RUN";
+    public static final String VERIFIED_MATCH = "VERIFIED_MATCH";
+    public static final String MISMATCH_DETECTED = "MISMATCH_DETECTED";
+    public static final String NOT_FOUND = "NOT_IN_REGISTRY";
+
     private final ExternalRegistryService registry;
     private final RegistrySnapshotRepository snapshotRepository;
     private final CompanyService companyService;
@@ -81,7 +86,7 @@ public class RegistryVerificationService {
 
         Optional<RegistryRecord> found = registry.lookup(company.getCin(), company.getPan());
         if (found.isEmpty()) {
-            return new RegistryVerificationDto(companyId, registry.source(),
+            return new RegistryVerificationDto(companyId, NOT_FOUND, registry.source(),
                     company.getCin() != null ? company.getCin() : company.getPan(),
                     false, null, null, 0, 0, List.of(), List.of(),
                     "The registry has no record for this CIN/PAN. Check the identifier on file.");
@@ -124,9 +129,105 @@ public class RegistryVerificationService {
                     + " filed as issues.";
         }
 
-        return new RegistryVerificationDto(companyId, registry.source(), record.lookupKey(), true,
+        return new RegistryVerificationDto(companyId,
+                mismatches == 0 ? VERIFIED_MATCH : MISMATCH_DETECTED,
+                registry.source(), record.lookupKey(), true,
                 payloadHash, snapshot.getFetchedAt(), comparisons.size(), mismatches,
                 comparisons, raisedIssues, message);
+    }
+
+    /**
+     * Re-derives the comparison from the last stored snapshot without calling the registry or
+     * touching issues, so the page can show current standing on load. Internal values are read
+     * live, so correcting a fact flips the card to matched without another registry call.
+     */
+    @Transactional(readOnly = true)
+    public RegistryVerificationDto status(UUID companyId, UUID callerId) {
+        Company company = companyService.findCompanyForUser(companyId, callerId);
+        RegistrySnapshot snapshot = snapshotRepository
+                .findByCompanyIdOrderByFetchedAtDesc(companyId).stream().findFirst().orElse(null);
+
+        if (snapshot == null) {
+            return new RegistryVerificationDto(companyId, NEVER_RUN, registry.source(),
+                    company.getCin() != null ? company.getCin() : company.getPan(),
+                    false, null, null, 0, 0, List.of(), List.of(),
+                    "This company has not been checked against the registry yet.");
+        }
+
+        Transaction transaction = latestTransactionFor(companyId);
+        List<RegistryVerificationDto.FieldComparisonDto> comparisons = List.of(
+                readOnlyComparison(company, "Legal name", company.getLegalName(),
+                        snapshot.getLegalName(), "Company record"),
+                readOnlyComparison(company, "Incorporation date",
+                        company.getIncorporationDate() != null ? company.getIncorporationDate().toString() : null,
+                        snapshot.getIncorporationDate() != null ? snapshot.getIncorporationDate().toString() : null,
+                        "Company record"),
+                authorizedCapitalComparison(company, transaction, snapshot.getAuthorizedCapital()));
+
+        int mismatches = (int) comparisons.stream().filter(c -> !c.match()).count();
+        return new RegistryVerificationDto(companyId,
+                mismatches == 0 ? VERIFIED_MATCH : MISMATCH_DETECTED,
+                snapshot.getSource(), snapshot.getLookupKey(), true, snapshot.getPayloadSha256(),
+                snapshot.getFetchedAt(), comparisons.size(), mismatches, comparisons, List.of(),
+                mismatches == 0 ? "Every checked field matches the registry."
+                        : mismatches + " field(s) disagree with the registry.");
+    }
+
+    private RegistryVerificationDto.FieldComparisonDto readOnlyComparison(
+            Company company, String field, String internalValue, String registryValue, String internalSource) {
+        boolean match = internalValue != null && registryValue != null
+                && normalise(internalValue).equals(normalise(registryValue));
+        Issue issue = issueRepository.findFirstByConflictKey(conflictKey(company, field)).orElse(null);
+        boolean openIssue = issue != null && issue.getStatus() != IssueStatus.RESOLVED
+                && issue.getStatus() != IssueStatus.CLOSED;
+        return new RegistryVerificationDto.FieldComparisonDto(field, internalValue, registryValue,
+                match, internalSource, openIssue ? issue.getId() : null,
+                openIssue ? issue.getWorkstream().getId() : null);
+    }
+
+    private RegistryVerificationDto.FieldComparisonDto authorizedCapitalComparison(
+            Company company, Transaction transaction, BigDecimal registryCapital) {
+        Fact fact = findAuthorizedCapitalFact(transaction);
+        String internalValue = fact != null ? fact.getValue() : null;
+        String registryValue = registryCapital != null
+                ? registryCapital.stripTrailingZeros().toPlainString() : null;
+        boolean match = capitalMatches(internalValue, registryCapital);
+
+        Issue issue = issueRepository.findFirstByConflictKey(conflictKey(company, "Authorized capital"))
+                .orElse(null);
+        boolean openIssue = issue != null && issue.getStatus() != IssueStatus.RESOLVED
+                && issue.getStatus() != IssueStatus.CLOSED;
+
+        return new RegistryVerificationDto.FieldComparisonDto("Authorized capital", internalValue,
+                registryValue, match,
+                fact != null ? "Fact \"" + fact.getLabel() + "\"" : "Not recorded",
+                openIssue ? issue.getId() : null, openIssue ? issue.getWorkstream().getId() : null);
+    }
+
+    private Fact findAuthorizedCapitalFact(Transaction transaction) {
+        if (transaction == null) {
+            return null;
+        }
+        return factRepository.findByWorkstreamTransactionId(transaction.getId()).stream()
+                .filter(f -> f.getStatus() != FactStatus.SUPERSEDED)
+                .filter(f -> f.getLabel().trim().toLowerCase(Locale.ROOT).contains(AUTHORIZED_CAPITAL_LABEL))
+                .findFirst()
+                .orElse(null);
+    }
+
+    private boolean capitalMatches(String internalValue, BigDecimal registryCapital) {
+        if (internalValue == null || registryCapital == null) {
+            return false;
+        }
+        try {
+            return new BigDecimal(internalValue.replaceAll("[,\\s₹]", "")).compareTo(registryCapital) == 0;
+        } catch (NumberFormatException e) {
+            return false;
+        }
+    }
+
+    private String conflictKey(Company company, String field) {
+        return "registry::" + company.getId() + "::" + field.toLowerCase(Locale.ROOT);
     }
 
     private RegistryVerificationDto.FieldComparisonDto compareText(
@@ -135,10 +236,11 @@ public class RegistryVerificationService {
 
         boolean match = normalise(internalValue).equals(normalise(registryValue))
                 && internalValue != null && registryValue != null;
-        UUID issueId = syncIssue(company, transaction, caller, field, internalValue, registryValue,
+        Issue issue = syncIssue(company, transaction, caller, field, internalValue, registryValue,
                 internalSource, match, raised);
         return new RegistryVerificationDto.FieldComparisonDto(field, internalValue, registryValue,
-                match, internalSource, issueId);
+                match, internalSource, issue != null ? issue.getId() : null,
+                issue != null ? issue.getWorkstream().getId() : null);
     }
 
     /**
@@ -169,21 +271,23 @@ public class RegistryVerificationService {
             }
         }
 
-        UUID issueId = syncIssue(company, transaction, caller, "Authorized capital",
+        Issue issue = syncIssue(company, transaction, caller, "Authorized capital",
                 internalValue, registryValue,
                 fact != null ? "Fact \"" + fact.getLabel() + "\"" : "Not recorded", match, raised);
 
         return new RegistryVerificationDto.FieldComparisonDto("Authorized capital",
                 internalValue, registryValue, match,
-                fact != null ? "Fact \"" + fact.getLabel() + "\"" : "Not recorded", issueId);
+                fact != null ? "Fact \"" + fact.getLabel() + "\"" : "Not recorded",
+                issue != null ? issue.getId() : null,
+                issue != null ? issue.getWorkstream().getId() : null);
     }
 
     /** One issue per company field, reopened on mismatch and auto-resolved once it agrees. */
-    private UUID syncIssue(Company company, Transaction transaction, User caller, String field,
+    private Issue syncIssue(Company company, Transaction transaction, User caller, String field,
                             String internalValue, String registryValue, String internalSource,
                             boolean match, List<UUID> raised) {
 
-        String conflictKey = "registry::" + company.getId() + "::" + field.toLowerCase(Locale.ROOT);
+        String conflictKey = conflictKey(company, field);
         Issue existing = issueRepository.findFirstByConflictKey(conflictKey).orElse(null);
 
         if (match) {
@@ -191,7 +295,7 @@ public class RegistryVerificationService {
                     && existing.getStatus() != IssueStatus.CLOSED) {
                 existing.autoResolve("Now matches " + registry.source() + ": " + registryValue);
             }
-            return existing != null ? existing.getId() : null;
+            return null;
         }
 
         String description = "Syndicate and " + registry.source() + " disagree. No value has been"
@@ -203,7 +307,7 @@ public class RegistryVerificationService {
         if (existing != null) {
             existing.reopen(description, IssueSeverity.HIGH);
             raised.add(existing.getId());
-            return existing.getId();
+            return existing;
         }
 
         if (transaction == null) {
@@ -219,7 +323,7 @@ public class RegistryVerificationService {
         issue.setConflictKey(conflictKey);
         Issue saved = issueRepository.save(issue);
         raised.add(saved.getId());
-        return saved.getId();
+        return saved;
     }
 
     private Workstream resolveWorkstream(Transaction transaction) {

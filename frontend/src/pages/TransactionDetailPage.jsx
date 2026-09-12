@@ -13,6 +13,7 @@ import TaskBoard from '../components/TaskBoard';
 import DrhpPanel from '../components/DrhpPanel';
 import DocumentsPanel from '../components/DocumentsPanel';
 import AuditTimeline from '../components/AuditTimeline';
+import ProvenanceDrawer from '../components/ProvenanceDrawer';
 import { TRANSACTION_ROLES, TRANSACTION_STATUSES, WORKSTREAM_TYPES, humanize } from '../constants';
 
 const SIGNER_ROLES = ['ISSUER_ADMIN', 'LEAD_BANKER'];
@@ -52,6 +53,7 @@ export default function TransactionDetailPage() {
   const [evidence, setEvidence] = useState([]);
   const [tab, setTab] = useState('overview');
   const [auditEvents, setAuditEvents] = useState([]);
+  const [provenance, setProvenance] = useState(null);
   const [error, setError] = useState(null);
 
   const [inviteMode, setInviteMode] = useState('individual');
@@ -182,11 +184,20 @@ export default function TransactionDetailPage() {
     }
   }
 
-  async function handleCompileDrhp() {
+  async function handleInspectProvenance(documentId) {
+    setError(null);
+    try {
+      setProvenance(await drhpApi.getProvenance(documentId));
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  async function handleCompileDrhp(mode) {
     setError(null);
     setCompiling(true);
     try {
-      const result = await drhpApi.compileDrhp(id);
+      const result = await drhpApi.compileDrhp(id, mode);
       setCompileResult(result);
       if (result.compiled) {
         setDrhpDocument(result.document);
@@ -445,10 +456,15 @@ export default function TransactionDetailPage() {
         onCompile={handleCompileDrhp}
         onCreateDisclosure={handleCreateDisclosure}
         onUpdateDisclosure={handleUpdateDisclosure}
+        onInspectProvenance={handleInspectProvenance}
       />
       )}
 
       {tab === 'audit' && <AuditTimeline events={auditEvents} />}
+
+      {provenance && (
+        <ProvenanceDrawer provenance={provenance} onClose={() => setProvenance(null)} />
+      )}
 
       {tab === 'team' && (
       <>
