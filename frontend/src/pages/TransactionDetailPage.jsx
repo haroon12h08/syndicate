@@ -5,7 +5,9 @@ import * as transactionsApi from '../api/transactions';
 import * as workstreamsApi from '../api/workstreams';
 import * as invitationsApi from '../api/invitations';
 import * as readinessApi from '../api/readiness';
+import * as tasksApi from '../api/tasks';
 import ReadinessPanel from '../components/ReadinessPanel';
+import TaskBoard from '../components/TaskBoard';
 import { TRANSACTION_ROLES, TRANSACTION_STATUSES, WORKSTREAM_TYPES, humanize } from '../constants';
 
 const SIGNER_ROLES = ['ISSUER_ADMIN', 'LEAD_BANKER'];
@@ -27,6 +29,7 @@ export default function TransactionDetailPage() {
   const [approvalStatus, setApprovalStatus] = useState(null);
   const [readiness, setReadiness] = useState(null);
   const [evaluating, setEvaluating] = useState(false);
+  const [tasks, setTasks] = useState([]);
   const [error, setError] = useState(null);
 
   const [inviteMode, setInviteMode] = useState('individual');
@@ -47,6 +50,7 @@ export default function TransactionDetailPage() {
         invitationsApi.listTransactionInvitations(id).catch(() => []),
       ]);
       readinessApi.getReadiness(id).then(setReadiness).catch(() => setReadiness(null));
+      tasksApi.listTasks(id).then(setTasks).catch(() => setTasks([]));
       setTransaction(txn);
       setMemberships(members);
       setWorkstreams(ws);
@@ -79,6 +83,16 @@ export default function TransactionDetailPage() {
       setError(err.message);
     } finally {
       setEvaluating(false);
+    }
+  }
+
+  async function patchTask(taskId, payload) {
+    setError(null);
+    try {
+      const updated = await tasksApi.updateTask(taskId, payload);
+      setTasks((list) => list.map((t) => (t.id === updated.id ? updated : t)));
+    } catch (err) {
+      setError(err.message);
     }
   }
 
@@ -209,6 +223,18 @@ export default function TransactionDetailPage() {
         readiness={readiness}
         onEvaluate={handleEvaluateReadiness}
         evaluating={evaluating}
+      />
+
+      <TaskBoard
+        tasks={tasks}
+        members={memberships}
+        onMove={(taskId, status) => patchTask(taskId, { status })}
+        onAssign={(taskId, assignedUserId) => patchTask(taskId, { assignedUserId })}
+        onResolutionNote={(taskId, resolutionNote) => patchTask(taskId, { resolutionNote })}
+        onInviteAdvisor={() => {
+          setShowInviteForm(true);
+          document.querySelector('.card-form')?.scrollIntoView({ behavior: 'smooth' });
+        }}
       />
 
       <div className="page-header"><h2>Team &amp; Advisory</h2></div>

@@ -1,6 +1,5 @@
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import RupeeArt from '../components/RupeeArt';
 
 const FEATURES = [
   {
@@ -60,14 +59,14 @@ export default function LandingPage() {
           </div>
         </div>
         <div className="landing-skyline">
-          <div className="landing-skyline-half">
-            <RupeeArt variant="nse" width={280} height={260} />
-            <div className="landing-skyline-label">NSE</div>
-          </div>
-          <div className="landing-skyline-half">
-            <RupeeArt variant="bse" width={280} height={260} />
-            <div className="landing-skyline-label">BSE</div>
-          </div>
+          <figure className="landing-skyline-half">
+            <img src="/nse.png" alt="National Stock Exchange rendered in rupee symbols" />
+            <figcaption className="landing-skyline-label">NSE</figcaption>
+          </figure>
+          <figure className="landing-skyline-half">
+            <img src="/bse.png" alt="Bombay Stock Exchange rendered in rupee symbols" />
+            <figcaption className="landing-skyline-label">BSE</figcaption>
+          </figure>
         </div>
       </section>
 

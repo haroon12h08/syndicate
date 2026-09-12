@@ -89,15 +89,15 @@ h1, h2, h3 {
 }
 
 .app-sidebar-brand img {
-  width: 30px;
-  height: 30px;
+  width: 54px;
+  height: 54px;
   image-rendering: pixelated;
 }
 
 .app-sidebar-brand span {
   font-weight: 700;
-  letter-spacing: 0.04em;
-  font-size: 0.95rem;
+  letter-spacing: 0.06em;
+  font-size: 1.15rem;
 }
 
 .app-sidebar-nav {
@@ -551,16 +551,17 @@ button.secondary:hover {
 .landing-brand {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
+  gap: 0.75rem;
   text-decoration: none;
   color: var(--text);
   font-weight: 700;
-  letter-spacing: 0.03em;
+  font-size: 1.35rem;
+  letter-spacing: 0.05em;
 }
 
 .landing-brand img {
-  width: 32px;
-  height: 32px;
+  width: 64px;
+  height: 64px;
   image-rendering: pixelated;
 }
 
@@ -618,10 +619,12 @@ button.secondary:hover {
 
 .landing-skyline-half {
   flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 1rem;
+  padding: 0.75rem;
+  margin: 0;
   position: relative;
 }
 
@@ -636,11 +639,15 @@ button.secondary:hover {
   margin-top: 0.5rem;
 }
 
-.landing-skyline canvas {
+.landing-skyline-half img {
   width: 100%;
   height: auto;
-  image-rendering: pixelated;
+  display: block;
+  /* The artwork is already near-black; blending removes the letterbox edge. */
+  mix-blend-mode: screen;
 }
+
+.landing-skyline-half figcaption { margin: 0; }
 
 .landing-features {
   border-top: 1px solid var(--border);
@@ -819,4 +826,103 @@ button.secondary:hover {
 
 @media (max-width: 640px) {
   .rule-row-head { flex-wrap: wrap; }
+}
+
+/* ---------- Phase 5: task board ---------- */
+
+.task-board-section { margin: 2rem 0; }
+
+.escalation-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border: 1px solid #b45309;
+  border-left-width: 3px;
+  background: rgba(180, 83, 9, 0.12);
+  color: #fcd34d;
+  padding: 0.85rem 1rem;
+  margin-bottom: 1rem;
+}
+
+.escalation-banner .hint { color: #d6b45f; }
+
+.escalation-banner button {
+  background: #fbbf24;
+  color: #1a1a1a;
+  border-color: #fbbf24;
+  white-space: nowrap;
+}
+
+.kanban {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.kanban-column {
+  border: 1px solid var(--border);
+  background: #0d0d0d;
+  padding: 0.6rem;
+  min-height: 140px;
+}
+
+.kanban-column-head {
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 0.6rem;
+}
+
+.kanban-card {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  padding: 0.65rem;
+  margin-bottom: 0.55rem;
+  cursor: pointer;
+}
+
+.kanban-card:hover { border-color: #4a4a4a; }
+.kanban-card.escalated { border-left: 3px solid #fbbf24; }
+
+.kanban-card-title {
+  font-size: 0.82rem;
+  margin-bottom: 0.45rem;
+  line-height: 1.35;
+}
+
+.kanban-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.35rem;
+}
+
+.kanban-card-move {
+  width: 100%;
+  margin-top: 0.5rem;
+  font-size: 0.72rem;
+  padding: 0.3rem;
+}
+
+.kanban-empty { padding: 0.4rem; }
+
+.drawer textarea {
+  width: 100%;
+  background: #0d0d0d;
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: var(--mono);
+  padding: 0.5rem;
+}
+
+@media (max-width: 900px) {
+  .kanban { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 560px) {
+  .kanban { grid-template-columns: 1fr; }
+  .escalation-banner { flex-direction: column; align-items: flex-start; }
 }
