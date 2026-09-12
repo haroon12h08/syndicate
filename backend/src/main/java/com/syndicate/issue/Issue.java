@@ -60,6 +60,10 @@ public class Issue extends BaseEntity {
     @Column(name = "generated_by_rule_id")
     private UUID generatedByRuleId;
 
+    /** Set when this issue represents a detected conflict; keeps re-detection idempotent. */
+    @Column(name = "conflict_key")
+    private String conflictKey;
+
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
             name = "issue_fact_link",
@@ -137,6 +141,14 @@ public class Issue extends BaseEntity {
 
     public UUID getGeneratedByRuleId() {
         return generatedByRuleId;
+    }
+
+    public String getConflictKey() {
+        return conflictKey;
+    }
+
+    public void setConflictKey(String conflictKey) {
+        this.conflictKey = conflictKey;
     }
 
     public void setGeneratedByRuleId(UUID generatedByRuleId) {

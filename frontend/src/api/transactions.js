@@ -39,3 +39,7 @@ export function deleteTransaction(id) {
 export function leaveTransaction(id) {
   return apiPost(`/transactions/${id}/leave`);
 }
+
+export function listAudit(transactionId) {
+  return apiGet(`/transactions/${transactionId}/audit`);
+}

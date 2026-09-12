@@ -9,6 +9,7 @@ import InviteAcceptPage from './pages/InviteAcceptPage';
 import HomePage from './pages/HomePage';
 import InvitationsInboxPage from './pages/InvitationsInboxPage';
 import OrganizationPage from './pages/OrganizationPage';
+import OrganizationsPage from './pages/OrganizationsPage';
 import CompaniesPage from './pages/CompaniesPage';
 import CompanyDetailPage from './pages/CompanyDetailPage';
 import TransactionDetailPage from './pages/TransactionDetailPage';
@@ -33,6 +34,7 @@ export default function App() {
         <Route path="/invite/:token" element={<InviteAcceptPage />} />
         <Route path="/home" element={<Shell><HomePage /></Shell>} />
         <Route path="/invitations" element={<Shell><InvitationsInboxPage /></Shell>} />
+        <Route path="/organizations" element={<Shell><OrganizationsPage /></Shell>} />
         <Route path="/organizations/:id" element={<Shell><OrganizationPage /></Shell>} />
         <Route path="/companies" element={<Shell><CompaniesPage /></Shell>} />
         <Route path="/companies/:id" element={<Shell><CompanyDetailPage /></Shell>} />

@@ -12,6 +12,7 @@ import ReadinessPanel from '../components/ReadinessPanel';
 import TaskBoard from '../components/TaskBoard';
 import DrhpPanel from '../components/DrhpPanel';
 import DocumentsPanel from '../components/DocumentsPanel';
+import AuditTimeline from '../components/AuditTimeline';
 import { TRANSACTION_ROLES, TRANSACTION_STATUSES, WORKSTREAM_TYPES, humanize } from '../constants';
 
 const SIGNER_ROLES = ['ISSUER_ADMIN', 'LEAD_BANKER'];
@@ -22,6 +23,7 @@ const TABS = [
   { key: 'tasks', label: 'Tasks' },
   { key: 'drhp', label: 'DRHP' },
   { key: 'team', label: 'Team' },
+  { key: 'audit', label: 'Audit' },
 ];
 
 function invitationBadgeClass(inv) {
@@ -49,6 +51,7 @@ export default function TransactionDetailPage() {
   const [compiling, setCompiling] = useState(false);
   const [evidence, setEvidence] = useState([]);
   const [tab, setTab] = useState('overview');
+  const [auditEvents, setAuditEvents] = useState([]);
   const [error, setError] = useState(null);
 
   const [inviteMode, setInviteMode] = useState('individual');
@@ -73,6 +76,7 @@ export default function TransactionDetailPage() {
       drhpApi.listDisclosures(id).then(setDisclosures).catch(() => setDisclosures([]));
       drhpApi.getLatestDrhp(id).then(setDrhpDocument).catch(() => setDrhpDocument(null));
       evidenceApi.listTransactionEvidence(id).then(setEvidence).catch(() => setEvidence([]));
+      transactionsApi.listAudit(id).then(setAuditEvents).catch(() => setAuditEvents([]));
       setTransaction(txn);
       setMemberships(members);
       setWorkstreams(ws);
@@ -91,6 +95,18 @@ export default function TransactionDetailPage() {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  // Extraction runs on a queue, so poll while anything is still in flight.
+  useEffect(() => {
+    const inFlight = evidence.some(
+      (e) => e.processingStatus === 'PENDING' || e.processingStatus === 'PROCESSING'
+    );
+    if (!inFlight) return undefined;
+    const timer = setInterval(() => {
+      evidenceApi.listTransactionEvidence(id).then(setEvidence).catch(() => {});
+    }, 2500);
+    return () => clearInterval(timer);
+  }, [evidence, id]);
 
   const myMembership = memberships.find((m) => m.user.id === user?.id);
   const canSign = myMembership && SIGNER_ROLES.includes(myMembership.role);
@@ -358,6 +374,34 @@ export default function TransactionDetailPage() {
         </div>
       )}
 
+      {tab === 'overview' && workstreams.length === 0 && (
+        <section className="quickstart">
+          <h2>Next steps</h2>
+          <ol className="quickstart-steps">
+            <li>
+              <strong>Create your workstreams</strong>
+              <span className="hint">
+                Financial due diligence, capital structure, litigation — documents and facts
+                are filed against these.
+              </span>
+              <button onClick={() => setShowWsForm(true)}>New workstream →</button>
+            </li>
+            <li>
+              <strong>Upload the source documents</strong>
+              <span className="hint">Parsed into candidate facts with page anchors for review.</span>
+              <button className="secondary" onClick={() => setTab('documents')}>Go to documents</button>
+            </li>
+            <li>
+              <strong>Invite your advisors</strong>
+              <span className="hint">Auditor, legal counsel, merchant banker.</span>
+              <button className="secondary" onClick={() => { setTab('team'); setShowInviteForm(true); }}>
+                Invite participant
+              </button>
+            </li>
+          </ol>
+        </section>
+      )}
+
       {tab === 'overview' && (
         <ReadinessPanel
           readiness={readiness}
@@ -374,6 +418,7 @@ export default function TransactionDetailPage() {
           onDelete={handleDeleteEvidence}
           onReprocess={handleReprocessEvidence}
           onDownload={(evidenceId) => evidenceApi.downloadEvidence(evidenceId)}
+          onCreateWorkstream={() => { setTab('overview'); setShowWsForm(true); }}
         />
       )}
 
@@ -402,6 +447,8 @@ export default function TransactionDetailPage() {
         onUpdateDisclosure={handleUpdateDisclosure}
       />
       )}
+
+      {tab === 'audit' && <AuditTimeline events={auditEvents} />}
 
       {tab === 'team' && (
       <>
@@ -536,7 +583,12 @@ export default function TransactionDetailPage() {
             {w.description && <span className="hint"> — {w.description}</span>}
           </li>
         ))}
-        {workstreams.length === 0 && <li className="hint">No workstreams yet.</li>}
+        {workstreams.length === 0 && (
+          <li className="empty-state">
+            <span>No workstreams yet. Documents and facts are filed against a workstream.</span>
+            <button className="secondary" onClick={() => setShowWsForm(true)}>New workstream</button>
+          </li>
+        )}
       </ul>
       </>
       )}

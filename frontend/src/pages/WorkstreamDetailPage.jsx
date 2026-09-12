@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import * as workstreamsApi from '../api/workstreams';
 import * as factsApi from '../api/facts';
 import * as evidenceApi from '../api/evidence';
@@ -296,6 +296,9 @@ export default function WorkstreamDetailPage() {
 
   return (
     <div className="page">
+      <Link className="breadcrumb-back" to={`/transactions/${workstream.transactionId}`}>
+        ← Back to transaction
+      </Link>
       <h1>{humanize(workstream.type)}</h1>
       {workstream.description && <p className="hint">{workstream.description}</p>}
       {error && <div className="error-banner">{error}</div>}
