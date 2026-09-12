@@ -1,5 +1,9 @@
 import { Route, Routes } from 'react-router-dom';
+import { Toaster } from 'react-hot-toast';
 import { AuthProvider } from './context/AuthContext';
+import { BreadcrumbProvider } from './context/BreadcrumbContext';
+import CommandPalette from './components/CommandPalette';
+import RouteProgress from './components/RouteProgress';
 import ProtectedRoute from './components/ProtectedRoute';
 import AppShell from './components/AppShell';
 import LandingPage from './pages/LandingPage';
@@ -27,6 +31,24 @@ function Shell({ children }) {
 export default function App() {
   return (
     <AuthProvider>
+      <BreadcrumbProvider>
+      <RouteProgress />
+      <CommandPalette />
+      <Toaster
+        position="bottom-right"
+        toastOptions={{
+          style: {
+            background: '#111111',
+            color: '#e5e5e5',
+            border: '1px solid #2e2e2e',
+            borderRadius: '4px',
+            fontFamily: "'JetBrains Mono', ui-monospace, monospace",
+            fontSize: '0.8rem',
+          },
+          success: { iconTheme: { primary: '#4ade80', secondary: '#111111' } },
+          error: { iconTheme: { primary: '#f87171', secondary: '#111111' } },
+        }}
+      />
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<LoginPage />} />
@@ -42,6 +64,7 @@ export default function App() {
         <Route path="/workstreams/:id" element={<Shell><WorkstreamDetailPage /></Shell>} />
         <Route path="/facts/:id/trace" element={<Shell><FactTracePage /></Shell>} />
       </Routes>
+      </BreadcrumbProvider>
     </AuthProvider>
   );
 }

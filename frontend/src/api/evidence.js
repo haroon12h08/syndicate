@@ -1,4 +1,4 @@
-import { apiDelete, apiDownload, apiGet, apiImageBlobUrl, apiPost, apiUpload } from './client';
+import { apiBaseUrl, apiDelete, apiDownload, apiGet, apiImageBlobUrl, apiPost, apiUpload } from './client';
 
 export function listEvidence(workstreamId) {
   return apiGet(`/workstreams/${workstreamId}/evidence`);
@@ -29,4 +29,10 @@ export function pageImageUrl(evidenceId, pageNumber) {
 
 export function listTransactionEvidence(transactionId) {
   return apiGet(`/transactions/${transactionId}/evidence`);
+}
+
+/** EventSource cannot set headers, so the token travels as a query parameter. */
+export function transactionEventsUrl(transactionId) {
+  const token = localStorage.getItem('syndicate_token');
+  return `${apiBaseUrl()}/transactions/${transactionId}/events?access_token=${encodeURIComponent(token || '')}`;
 }
