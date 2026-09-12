@@ -75,6 +75,10 @@ export default function WorkstreamDetailPage() {
 
   const [showFactForm, setShowFactForm] = useState(false);
   const [correctingFactId, setCorrectingFactId] = useState(null);
+  const [historyFactId, setHistoryFactId] = useState(null);
+  const [history, setHistory] = useState([]);
+  const [asOf, setAsOf] = useState('');
+  const [asOfApplied, setAsOfApplied] = useState(null);
   const [showEvidenceForm, setShowEvidenceForm] = useState(false);
   const [showIssueForm, setShowIssueForm] = useState(false);
   const [linkChoice, setLinkChoice] = useState({});
@@ -102,6 +106,40 @@ export default function WorkstreamDetailPage() {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  async function handleToggleHistory(factId) {
+    if (historyFactId === factId) {
+      setHistoryFactId(null);
+      setHistory([]);
+      return;
+    }
+    setError(null);
+    try {
+      const chain = await factsApi.getFactHistory(factId);
+      setHistory(chain);
+      setHistoryFactId(factId);
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  async function handleApplyAsOf() {
+    setError(null);
+    try {
+      if (!asOf) {
+        setAsOfApplied(null);
+        const live = await factsApi.listFacts(id);
+        setFacts(live);
+        return;
+      }
+      const instant = new Date(asOf).toISOString();
+      const snapshot = await factsApi.listFactsAsOf(id, instant);
+      setFacts(snapshot);
+      setAsOfApplied(instant);
+    } catch (err) {
+      setError(err.message);
+    }
+  }
 
   async function handleCreateFact(payload) {
     setError(null);
@@ -269,6 +307,31 @@ export default function WorkstreamDetailPage() {
       {showFactForm && (
         <FactForm submitLabel="Create fact" onSubmit={handleCreateFact} onCancel={() => setShowFactForm(false)} />
       )}
+
+      <div className="inline-form">
+        <label className="hint" htmlFor="as-of-input">Reconstruct as of</label>
+        <input
+          id="as-of-input"
+          type="datetime-local"
+          value={asOf}
+          onChange={(e) => setAsOf(e.target.value)}
+        />
+        <button onClick={handleApplyAsOf}>{asOf ? 'Time travel' : 'Show current'}</button>
+        {asOfApplied && (
+          <button
+            className="secondary"
+            onClick={() => { setAsOf(''); setAsOfApplied(null); load(); }}
+          >
+            Back to now
+          </button>
+        )}
+      </div>
+      {asOfApplied && (
+        <p className="hint">
+          Showing what Syndicate believed at {new Date(asOfApplied).toLocaleString()} — historical snapshot, not editable.
+        </p>
+      )}
+
       <table className="data-table">
         <thead>
           <tr><th>Label</th><th>Value</th><th>Status</th><th>Version</th><th>Evidence</th><th>Actions</th></tr>
@@ -305,14 +368,47 @@ export default function WorkstreamDetailPage() {
                   )}
                 </td>
                 <td>
-                  {f.status === 'DRAFT' && <button onClick={() => handleVerifyFact(f.id)}>Verify</button>}
-                  {f.status !== 'SUPERSEDED' && (
+                  {!asOfApplied && f.status === 'DRAFT' && (
+                    <button onClick={() => handleVerifyFact(f.id)}>Verify</button>
+                  )}
+                  {!asOfApplied && f.status !== 'SUPERSEDED' && (
                     <button onClick={() => setCorrectingFactId(correctingFactId === f.id ? null : f.id)}>
                       {correctingFactId === f.id ? 'Cancel' : 'Correct'}
                     </button>
                   )}
+                  <button className="secondary" onClick={() => handleToggleHistory(f.id)}>
+                    {historyFactId === f.id ? 'Hide history' : 'History'}
+                  </button>
                 </td>
               </tr>
+              {historyFactId === f.id && (
+                <tr>
+                  <td colSpan={6}>
+                    <div className="eyebrow">Version history</div>
+                    <table className="data-table">
+                      <thead>
+                        <tr>
+                          <th>Version</th><th>Value</th><th>Valid from</th><th>Valid to</th>
+                          <th>Recorded</th><th>Superseded</th><th>By</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {history.map((h) => (
+                          <tr key={h.id}>
+                            <td>v{h.version}</td>
+                            <td>{h.value} {h.unit}</td>
+                            <td>{h.validFrom ? new Date(h.validFrom).toLocaleDateString() : '—'}</td>
+                            <td>{h.validTo ? new Date(h.validTo).toLocaleDateString() : 'current'}</td>
+                            <td>{h.systemRecordedAt ? new Date(h.systemRecordedAt).toLocaleString() : '—'}</td>
+                            <td>{h.systemSupersededAt ? new Date(h.systemSupersededAt).toLocaleString() : '—'}</td>
+                            <td>{h.createdBy?.fullName}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </td>
+                </tr>
+              )}
               {correctingFactId === f.id && (
                 <tr>
                   <td colSpan={6}>

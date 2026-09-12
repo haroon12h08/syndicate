@@ -5,6 +5,7 @@ import com.syndicate.fact.dto.FactDto;
 import com.syndicate.fact.dto.UpdateFactRequest;
 import com.syndicate.user.User;
 import jakarta.validation.Valid;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -17,6 +18,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -32,8 +34,18 @@ public class FactController {
     @GetMapping("/api/workstreams/{workstreamId}/facts")
     public List<FactDto> list(@PathVariable UUID workstreamId,
                                @RequestParam(defaultValue = "false") boolean includeSuperseded,
+                               @RequestParam(required = false)
+                               @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant asOf,
                                @AuthenticationPrincipal User currentUser) {
+        if (asOf != null) {
+            return factService.listAsOf(workstreamId, asOf, currentUser.getId());
+        }
         return factService.list(workstreamId, includeSuperseded, currentUser.getId());
+    }
+
+    @GetMapping("/api/facts/{id}/history")
+    public List<FactDto> history(@PathVariable UUID id, @AuthenticationPrincipal User currentUser) {
+        return factService.history(id, currentUser.getId());
     }
 
     @PostMapping("/api/workstreams/{workstreamId}/facts")

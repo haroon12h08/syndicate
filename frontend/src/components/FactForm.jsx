@@ -1,9 +1,9 @@
 import { useState } from 'react';
 
-const empty = { label: '', value: '', unit: '', period: '' };
+const empty = { label: '', value: '', unit: '', period: '', validFrom: '', validTo: '' };
 
 export default function FactForm({ initial, submitLabel, onSubmit, onCancel }) {
-  const [form, setForm] = useState(initial || empty);
+  const [form, setForm] = useState({ ...empty, ...initial });
   const [submitting, setSubmitting] = useState(false);
 
   function update(field, value) {
@@ -14,7 +14,11 @@ export default function FactForm({ initial, submitLabel, onSubmit, onCancel }) {
     e.preventDefault();
     setSubmitting(true);
     try {
-      await onSubmit(form);
+      await onSubmit({
+        ...form,
+        validFrom: form.validFrom ? new Date(form.validFrom).toISOString() : null,
+        validTo: form.validTo ? new Date(form.validTo).toISOString() : null,
+      });
       if (!initial) {
         setForm(empty);
       }
@@ -40,6 +44,16 @@ export default function FactForm({ initial, submitLabel, onSubmit, onCancel }) {
       <label>
         Period
         <input value={form.period} onChange={(e) => update('period', e.target.value)} placeholder="e.g. FY2026" />
+      </label>
+      <label>
+        Valid from
+        <input type="date" value={form.validFrom} onChange={(e) => update('validFrom', e.target.value)} />
+        <span className="hint">When this became true in the real world. Defaults to now.</span>
+      </label>
+      <label>
+        Valid until
+        <input type="date" value={form.validTo} onChange={(e) => update('validTo', e.target.value)} />
+        <span className="hint">Leave empty if still true.</span>
       </label>
       <div className="form-actions">
         <button type="submit" disabled={submitting}>{submitting ? 'Saving...' : submitLabel}</button>
