@@ -9,6 +9,7 @@ import com.syndicate.issue.IssueStatus;
 import com.syndicate.regulatory.dto.BlockingIssueDto;
 import com.syndicate.regulatory.dto.ReadinessDto;
 import com.syndicate.regulatory.dto.RuleEvaluationDto;
+import com.syndicate.task.TaskService;
 import com.syndicate.transaction.Transaction;
 import com.syndicate.transaction.TransactionService;
 import com.syndicate.user.User;
@@ -51,6 +52,7 @@ public class ReadinessService {
     private final WorkstreamRepository workstreamRepository;
     private final TransactionService transactionService;
     private final RuleExpressionEvaluator expressionEvaluator;
+    private final TaskService taskService;
 
     public ReadinessService(RegulatoryRuleRepository ruleRepository,
                              RuleEvaluationRepository evaluationRepository,
@@ -58,7 +60,8 @@ public class ReadinessService {
                              IssueRepository issueRepository,
                              WorkstreamRepository workstreamRepository,
                              TransactionService transactionService,
-                             RuleExpressionEvaluator expressionEvaluator) {
+                             RuleExpressionEvaluator expressionEvaluator,
+                             TaskService taskService) {
         this.ruleRepository = ruleRepository;
         this.evaluationRepository = evaluationRepository;
         this.factRepository = factRepository;
@@ -66,6 +69,7 @@ public class ReadinessService {
         this.workstreamRepository = workstreamRepository;
         this.transactionService = transactionService;
         this.expressionEvaluator = expressionEvaluator;
+        this.taskService = taskService;
     }
 
     @Transactional(readOnly = true)
@@ -158,6 +162,13 @@ public class ReadinessService {
         }
         evaluation.record(status, actualValue, detail, touched, evaluatedAt);
         syncGeneratedIssue(transaction, rule, evaluation, caller);
+
+        boolean stillBlocking = evaluation.getStatus() == RuleEvaluationStatus.FAILED
+                || evaluation.getStatus() == RuleEvaluationStatus.MISSING_EVIDENCE;
+        taskService.syncRuleTask(transaction, rule.getId(), rule.getWorkstreamType(),
+                "[" + rule.getCode() + "] " + rule.getTitle(), evaluation.getDetail(), rule.getSeverity(),
+                evaluation.getGeneratedIssue() != null ? evaluation.getGeneratedIssue().getId() : null,
+                stillBlocking, caller);
         return evaluation;
     }
 
