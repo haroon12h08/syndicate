@@ -8,8 +8,8 @@ import com.syndicate.evidence.EvidenceRepository;
 import com.syndicate.fact.dto.CreateFactRequest;
 import com.syndicate.fact.dto.FactDto;
 import com.syndicate.fact.dto.UpdateFactRequest;
-import com.syndicate.permission.Permission;
 import com.syndicate.permission.PermissionService;
+import com.syndicate.regulatory.ReadinessService;
 import com.syndicate.transaction.TransactionRole;
 import com.syndicate.user.User;
 import com.syndicate.workstream.Workstream;
@@ -17,6 +17,8 @@ import com.syndicate.workstream.WorkstreamService;
 import com.syndicate.workstream.WorkstreamType;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -31,13 +33,16 @@ public class FactService {
     private final EvidenceRepository evidenceRepository;
     private final WorkstreamService workstreamService;
     private final PermissionService permissionService;
+    private final ReadinessService readinessService;
 
     public FactService(FactRepository factRepository, EvidenceRepository evidenceRepository,
-                        WorkstreamService workstreamService, PermissionService permissionService) {
+                        WorkstreamService workstreamService, PermissionService permissionService,
+                        ReadinessService readinessService) {
         this.factRepository = factRepository;
         this.evidenceRepository = evidenceRepository;
         this.workstreamService = workstreamService;
         this.permissionService = permissionService;
+        this.readinessService = readinessService;
     }
 
     @Transactional
@@ -125,7 +130,9 @@ public class FactService {
         oldFact.markSuperseded(now, validFrom);
         Fact newFact = new Fact(oldFact.getWorkstream(), request.label(), request.value(), request.unit(),
                 request.period(), oldFact, oldFact.getVersion() + 1, caller, validFrom, request.validTo());
-        return FactDto.from(factRepository.save(newFact));
+        Fact saved = factRepository.save(newFact);
+        scheduleReadinessReevaluation(oldFact.getWorkstream().getTransaction().getId(), caller);
+        return FactDto.from(saved);
     }
 
     @Transactional
@@ -142,7 +149,26 @@ public class FactService {
             }
         }
         fact.markVerified(caller, Instant.now());
+        scheduleReadinessReevaluation(workstream.getTransaction().getId(), caller);
         return FactDto.from(fact);
+    }
+
+    /**
+     * Readiness reflects committed facts, so the re-run is deferred until this transaction lands.
+     * Running it inline would evaluate against data a separate transaction cannot see yet, and a
+     * failure there would roll back the fact change that triggered it.
+     */
+    private void scheduleReadinessReevaluation(UUID transactionId, User caller) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            readinessService.reevaluateQuietly(transactionId, caller);
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                readinessService.reevaluateQuietly(transactionId, caller);
+            }
+        });
     }
 
     @Transactional
