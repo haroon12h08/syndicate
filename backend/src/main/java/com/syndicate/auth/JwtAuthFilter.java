@@ -31,9 +31,8 @@ public class JwtAuthFilter extends OncePerRequestFilter {
     protected void doFilterInternal(@NonNull HttpServletRequest request,
                                      @NonNull HttpServletResponse response,
                                      @NonNull FilterChain filterChain) throws ServletException, IOException {
-        String header = request.getHeader("Authorization");
-        if (header != null && header.startsWith("Bearer ")) {
-            String token = header.substring(7);
+        String token = resolveToken(request);
+        if (token != null) {
             try {
                 UUID userId = jwtService.extractUserId(token);
                 Optional<User> user = userRepository.findById(userId);
@@ -47,5 +46,25 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             }
         }
         filterChain.doFilter(request, response);
+    }
+
+    /**
+     * Normally the bearer header. EventSource cannot set headers, so the SSE stream — and only
+     * that endpoint — may pass the token as a query parameter. Query strings end up in access
+     * logs, so this is deliberately not accepted anywhere else.
+     */
+    private String resolveToken(HttpServletRequest request) {
+        String header = request.getHeader("Authorization");
+        if (header != null && header.startsWith("Bearer ")) {
+            return header.substring(7);
+        }
+        String path = request.getRequestURI();
+        if (path != null && path.endsWith("/events")) {
+            String queryToken = request.getParameter("access_token");
+            if (queryToken != null && !queryToken.isBlank()) {
+                return queryToken;
+            }
+        }
+        return null;
     }
 }

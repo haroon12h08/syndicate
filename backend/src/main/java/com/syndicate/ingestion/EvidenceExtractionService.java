@@ -8,10 +8,13 @@ import com.syndicate.evidence.Evidence;
 import com.syndicate.evidence.EvidenceRepository;
 import com.syndicate.evidence.FileStorageService;
 import com.syndicate.evidence.ProcessingStatus;
+import com.syndicate.stream.EvidenceStatusEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
@@ -38,6 +41,7 @@ public class EvidenceExtractionService {
     private final TesseractOcrRunner tesseractOcrRunner;
     private final CandidateFactMatcher candidateFactMatcher;
     private final PageImageCache pageImageCache;
+    private final org.springframework.context.ApplicationEventPublisher eventPublisher;
 
     public EvidenceExtractionService(EvidenceRepository evidenceRepository,
                                       CandidateFactRepository candidateFactRepository,
@@ -45,7 +49,8 @@ public class EvidenceExtractionService {
                                       PdfLayoutParser pdfLayoutParser,
                                       TesseractOcrRunner tesseractOcrRunner,
                                       CandidateFactMatcher candidateFactMatcher,
-                                      PageImageCache pageImageCache) {
+                                      PageImageCache pageImageCache,
+            org.springframework.context.ApplicationEventPublisher eventPublisher) {
         this.evidenceRepository = evidenceRepository;
         this.candidateFactRepository = candidateFactRepository;
         this.fileStorageService = fileStorageService;
@@ -53,6 +58,7 @@ public class EvidenceExtractionService {
         this.tesseractOcrRunner = tesseractOcrRunner;
         this.candidateFactMatcher = candidateFactMatcher;
         this.pageImageCache = pageImageCache;
+        this.eventPublisher = eventPublisher;
     }
 
     @Transactional(noRollbackFor = Exception.class)
@@ -65,6 +71,7 @@ public class EvidenceExtractionService {
         candidateFactRepository.deleteByEvidenceId(evidenceId);
         evidence.setProcessingStatus(ProcessingStatus.PROCESSING);
         evidence.setProcessingError(null);
+        publishStatus(evidence, 0);
 
         try {
             runPipeline(evidence);
@@ -72,6 +79,7 @@ public class EvidenceExtractionService {
             log.warn("Evidence extraction failed for {}: {}", evidenceId, e.getMessage(), e);
             evidence.setProcessingStatus(ProcessingStatus.FAILED);
             evidence.setProcessingError(e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName());
+            publishStatus(evidence, 0);
             throw new EvidenceExtractionException(evidenceId, e);
         }
     }
@@ -108,6 +116,28 @@ public class EvidenceExtractionService {
 
         } else {
             evidence.setProcessingStatus(ProcessingStatus.NOT_APPLICABLE);
+            publishStatus(evidence, 0);
+        }
+    }
+
+    /**
+     * Announced after the surrounding transaction commits, so a watcher that immediately refetches
+     * sees the committed state rather than racing it.
+     */
+    private void publishStatus(Evidence evidence, int candidateCount) {
+        EvidenceStatusEvent event = new EvidenceStatusEvent(
+                evidence.getWorkstream().getTransaction().getId(), evidence.getId(),
+                evidence.getFileName(), evidence.getProcessingStatus(),
+                evidence.getProcessingError(), candidateCount);
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCompletion(int status) {
+                    eventPublisher.publishEvent(event);
+                }
+            });
+        } else {
+            eventPublisher.publishEvent(event);
         }
     }
 
@@ -120,6 +150,7 @@ public class EvidenceExtractionService {
             candidateFactRepository.save(toCandidateFact(evidence, m));
         }
         evidence.setProcessingStatus(ProcessingStatus.COMPLETE);
+        publishStatus(evidence, matches.size());
     }
 
     private CandidateFact toCandidateFact(Evidence evidence, MatchedCandidate m) {

@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
+import toast from 'react-hot-toast';
+import { useBreadcrumbs } from '../context/BreadcrumbContext';
 import { useAuth } from '../context/AuthContext';
 import * as transactionsApi from '../api/transactions';
 import * as workstreamsApi from '../api/workstreams';
@@ -37,6 +39,7 @@ function invitationBadgeClass(inv) {
 export default function TransactionDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { setTrail } = useBreadcrumbs();
   const { user } = useAuth();
   const [transaction, setTransaction] = useState(null);
   const [memberships, setMemberships] = useState([]);
@@ -98,17 +101,41 @@ export default function TransactionDetailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  // Extraction runs on a queue, so poll while anything is still in flight.
   useEffect(() => {
-    const inFlight = evidence.some(
-      (e) => e.processingStatus === 'PENDING' || e.processingStatus === 'PROCESSING'
-    );
-    if (!inFlight) return undefined;
-    const timer = setInterval(() => {
-      evidenceApi.listTransactionEvidence(id).then(setEvidence).catch(() => {});
-    }, 2500);
-    return () => clearInterval(timer);
-  }, [evidence, id]);
+    if (!transaction) return undefined;
+    setTrail([
+      { label: transaction.companyName, to: `/companies/${transaction.companyId}` },
+      { label: transaction.name },
+    ]);
+    return () => setTrail([]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [transaction]);
+
+  // Extraction runs on a queue; the server streams each status change so nothing is polled.
+  useEffect(() => {
+    const source = new EventSource(evidenceApi.transactionEventsUrl(id));
+    source.addEventListener('evidence-status', (message) => {
+      const event = JSON.parse(message.data);
+      setEvidence((list) => list.map((e) => (
+        e.id === event.evidenceId
+          ? { ...e, processingStatus: event.status, processingError: event.error }
+          : e
+      )));
+      if (event.status === 'COMPLETE') {
+        toast.success(
+          event.candidateFactCount > 0
+            ? `${event.fileName}: ${event.candidateFactCount} candidate fact(s) ready for review`
+            : `${event.fileName} parsed — no candidate facts matched`
+        );
+      }
+      if (event.status === 'FAILED') {
+        toast.error(`${event.fileName} could not be parsed: ${event.error || 'unknown error'}`);
+      }
+    });
+    // A dropped stream must not break the page; the next load still reflects true state.
+    source.onerror = () => source.close();
+    return () => source.close();
+  }, [id]);
 
   const myMembership = memberships.find((m) => m.user.id === user?.id);
   const canSign = myMembership && SIGNER_ROLES.includes(myMembership.role);
@@ -201,6 +228,11 @@ export default function TransactionDetailPage() {
       setCompileResult(result);
       if (result.compiled) {
         setDrhpDocument(result.document);
+        toast.success(mode === 'FINAL_FILING'
+          ? `Final filing v${result.document.version} compiled with provenance manifest`
+          : `Draft v${result.document.version} compiled`);
+      } else {
+        toast.error(`Compilation refused — ${result.findings.length} blocking issue(s)`);
       }
       setDisclosures(await drhpApi.listDisclosures(id));
     } catch (err) {
@@ -232,10 +264,17 @@ export default function TransactionDetailPage() {
 
   async function patchTask(taskId, payload) {
     setError(null);
+    const previous = tasks;
+    // Optimistic: move the card now, put it back if the server rejects the transition.
+    setTasks((list) => list.map((t) => (t.id === taskId ? { ...t, ...payload } : t)));
     try {
       const updated = await tasksApi.updateTask(taskId, payload);
       setTasks((list) => list.map((t) => (t.id === updated.id ? updated : t)));
+      if (payload.status) toast.success(`Moved to ${payload.status.replace(/_/g, ' ').toLowerCase()}`);
+      if (payload.resolutionNote !== undefined) toast.success('Resolution saved');
     } catch (err) {
+      setTasks(previous);
+      toast.error(err.message);
       setError(err.message);
     }
   }

@@ -1,0 +1,80 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: syndicate-postgres
+    environment:
+      POSTGRES_DB: ${SYNDICATE_DB_NAME:-syndicate}
+      POSTGRES_USER: ${SYNDICATE_DB_USER:-syndicate}
+      POSTGRES_PASSWORD: ${SYNDICATE_DB_PASSWORD:-syndicate}
+    ports:
+      - "${SYNDICATE_DB_PORT:-5432}:5432"
+    volumes:
+      - syndicate-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${SYNDICATE_DB_USER:-syndicate} -d ${SYNDICATE_DB_NAME:-syndicate}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: syndicate-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: ${SYNDICATE_RABBITMQ_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${SYNDICATE_RABBITMQ_PASSWORD:-guest}
+    ports:
+      - "${SYNDICATE_RABBITMQ_PORT:-5672}:5672"
+      - "${SYNDICATE_RABBITMQ_MANAGEMENT_PORT:-15672}:15672"
+    volumes:
+      - syndicate-mq:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "check_running"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  # Runs the API and the extraction consumer in one process — a modular monolith, per spec §51.
+  # Flyway migrations run automatically at startup, so there is no separate migrate step.
+  api:
+    build:
+      context: ./backend
+    container_name: syndicate-api
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      SYNDICATE_DB_HOST: postgres
+      SYNDICATE_DB_PORT: 5432
+      SYNDICATE_DB_NAME: ${SYNDICATE_DB_NAME:-syndicate}
+      SYNDICATE_DB_USER: ${SYNDICATE_DB_USER:-syndicate}
+      SYNDICATE_DB_PASSWORD: ${SYNDICATE_DB_PASSWORD:-syndicate}
+      SYNDICATE_RABBITMQ_HOST: rabbitmq
+      SYNDICATE_RABBITMQ_PORT: 5672
+      SYNDICATE_RABBITMQ_USER: ${SYNDICATE_RABBITMQ_USER:-guest}
+      SYNDICATE_RABBITMQ_PASSWORD: ${SYNDICATE_RABBITMQ_PASSWORD:-guest}
+      SYNDICATE_JWT_SECRET: ${SYNDICATE_JWT_SECRET:-dev-only-secret-change-me-please-this-must-be-at-least-32-bytes-long}
+      SYNDICATE_CORS_ORIGINS: ${SYNDICATE_CORS_ORIGINS:-http://localhost:5173,http://localhost:5174,http://localhost:3000}
+      SYNDICATE_UPLOAD_DIR: /data/uploads
+    ports:
+      - "${SYNDICATE_API_PORT:-8080}:8080"
+    volumes:
+      - syndicate-uploads:/data/uploads
+
+  web:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_BASE_URL: http://localhost:${SYNDICATE_API_PORT:-8080}/api
+    container_name: syndicate-web
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "${SYNDICATE_WEB_PORT:-5173}:80"
+
+volumes:
+  syndicate-db:
+  syndicate-mq:
+  syndicate-uploads:

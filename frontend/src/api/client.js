@@ -1,4 +1,9 @@
-const BASE_URL = 'http://localhost:8080/api';
+// Baked in at build time so the same image can point at any API origin.
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api';
+
+export function apiBaseUrl() {
+  return BASE_URL;
+}
 
 function getToken() {
   return localStorage.getItem('syndicate_token');
@@ -20,8 +25,9 @@ async function handleResponse(response) {
   const body = isJson ? await response.json() : null;
   if (!response.ok) {
     if (response.status === 401) {
+      // Clearing the token lets the router redirect; assigning location would force a full reload.
       setToken(null);
-      window.location.href = '/login';
+      window.dispatchEvent(new CustomEvent('syndicate:unauthorized'));
     }
     const message = body?.message || response.statusText;
     throw new Error(message);

@@ -1,5 +1,7 @@
 import { Fragment, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import toast from 'react-hot-toast';
+import { useBreadcrumbs } from '../context/BreadcrumbContext';
 import * as workstreamsApi from '../api/workstreams';
 import * as factsApi from '../api/facts';
 import * as evidenceApi from '../api/evidence';
@@ -66,6 +68,7 @@ function IssueRow({ issue, onUpdate }) {
 
 export default function WorkstreamDetailPage() {
   const { id } = useParams();
+  const { setTrail } = useBreadcrumbs();
   const [workstream, setWorkstream] = useState(null);
   const [facts, setFacts] = useState([]);
   const [evidence, setEvidence] = useState([]);
@@ -106,6 +109,16 @@ export default function WorkstreamDetailPage() {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  useEffect(() => {
+    if (!workstream) return undefined;
+    setTrail([
+      { label: 'Transaction', to: `/transactions/${workstream.transactionId}` },
+      { label: humanize(workstream.type) },
+    ]);
+    return () => setTrail([]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [workstream]);
 
   async function handleToggleHistory(factId) {
     if (historyFactId === factId) {
@@ -167,10 +180,15 @@ export default function WorkstreamDetailPage() {
 
   async function handleVerifyFact(factId) {
     setError(null);
+    const previous = facts;
+    setFacts((list) => list.map((f) => (f.id === factId ? { ...f, status: 'VERIFIED' } : f)));
     try {
       await factsApi.verifyFact(factId);
+      toast.success('Fact verified');
       await load();
     } catch (err) {
+      setFacts(previous);
+      toast.error(`Verification failed: ${err.message}`);
       setError(err.message);
     }
   }
@@ -240,10 +258,16 @@ export default function WorkstreamDetailPage() {
 
   async function handleAcceptCandidate(candidateId, payload) {
     setError(null);
+    // Optimistic: drop the card immediately, restore it if the server refuses.
+    const previous = candidateFacts;
+    setCandidateFacts((list) => list.filter((c) => c.id !== candidateId));
     try {
       await candidateFactsApi.acceptCandidateFact(candidateId, payload);
+      toast.success(`Accepted "${payload.label || 'fact'}" — now a draft fact awaiting verification`);
       await load();
     } catch (err) {
+      setCandidateFacts(previous);
+      toast.error(`Could not accept: ${err.message}`);
       setError(err.message);
       throw err;
     }
@@ -251,10 +275,15 @@ export default function WorkstreamDetailPage() {
 
   async function handleRejectCandidate(candidateId, payload) {
     setError(null);
+    const previous = candidateFacts;
+    setCandidateFacts((list) => list.filter((c) => c.id !== candidateId));
     try {
       await candidateFactsApi.rejectCandidateFact(candidateId, payload);
+      toast('Candidate rejected');
       await load();
     } catch (err) {
+      setCandidateFacts(previous);
+      toast.error(`Could not reject: ${err.message}`);
       setError(err.message);
       throw err;
     }
