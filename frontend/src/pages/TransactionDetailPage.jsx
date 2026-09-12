@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import * as transactionsApi from '../api/transactions';
 import * as workstreamsApi from '../api/workstreams';
@@ -7,12 +7,22 @@ import * as invitationsApi from '../api/invitations';
 import * as readinessApi from '../api/readiness';
 import * as tasksApi from '../api/tasks';
 import * as drhpApi from '../api/drhp';
+import * as evidenceApi from '../api/evidence';
 import ReadinessPanel from '../components/ReadinessPanel';
 import TaskBoard from '../components/TaskBoard';
 import DrhpPanel from '../components/DrhpPanel';
+import DocumentsPanel from '../components/DocumentsPanel';
 import { TRANSACTION_ROLES, TRANSACTION_STATUSES, WORKSTREAM_TYPES, humanize } from '../constants';
 
 const SIGNER_ROLES = ['ISSUER_ADMIN', 'LEAD_BANKER'];
+
+const TABS = [
+  { key: 'overview', label: 'Overview' },
+  { key: 'documents', label: 'Documents' },
+  { key: 'tasks', label: 'Tasks' },
+  { key: 'drhp', label: 'DRHP' },
+  { key: 'team', label: 'Team' },
+];
 
 function invitationBadgeClass(inv) {
   if (inv.status === 'PENDING' && inv.expiresAt && new Date(inv.expiresAt) < new Date()) return 'badge badge-failed';
@@ -23,6 +33,7 @@ function invitationBadgeClass(inv) {
 
 export default function TransactionDetailPage() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [transaction, setTransaction] = useState(null);
   const [memberships, setMemberships] = useState([]);
@@ -36,6 +47,8 @@ export default function TransactionDetailPage() {
   const [drhpDocument, setDrhpDocument] = useState(null);
   const [compileResult, setCompileResult] = useState(null);
   const [compiling, setCompiling] = useState(false);
+  const [evidence, setEvidence] = useState([]);
+  const [tab, setTab] = useState('overview');
   const [error, setError] = useState(null);
 
   const [inviteMode, setInviteMode] = useState('individual');
@@ -59,6 +72,7 @@ export default function TransactionDetailPage() {
       tasksApi.listTasks(id).then(setTasks).catch(() => setTasks([]));
       drhpApi.listDisclosures(id).then(setDisclosures).catch(() => setDisclosures([]));
       drhpApi.getLatestDrhp(id).then(setDrhpDocument).catch(() => setDrhpDocument(null));
+      evidenceApi.listTransactionEvidence(id).then(setEvidence).catch(() => setEvidence([]));
       setTransaction(txn);
       setMemberships(members);
       setWorkstreams(ws);
@@ -91,6 +105,64 @@ export default function TransactionDetailPage() {
       setError(err.message);
     } finally {
       setEvaluating(false);
+    }
+  }
+
+  async function handleUploadEvidence(workstreamId, file, documentType) {
+    setError(null);
+    try {
+      await evidenceApi.uploadEvidence(workstreamId, file, documentType);
+      setEvidence(await evidenceApi.listTransactionEvidence(id));
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  async function handleDeleteEvidence(evidenceId, fileName) {
+    if (!window.confirm(`Delete "${fileName}"? This also removes its candidate facts.`)) return;
+    setError(null);
+    try {
+      await evidenceApi.deleteEvidence(evidenceId);
+      setEvidence(await evidenceApi.listTransactionEvidence(id));
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  async function handleReprocessEvidence(evidenceId) {
+    setError(null);
+    try {
+      await evidenceApi.reprocessEvidence(evidenceId);
+      setEvidence(await evidenceApi.listTransactionEvidence(id));
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  async function handleLeave() {
+    if (!window.confirm('Leave this transaction? You will lose access to its workspace.')) return;
+    setError(null);
+    try {
+      await transactionsApi.leaveTransaction(id);
+      navigate('/home');
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  async function handleDeleteTransaction() {
+    const typed = window.prompt(
+      `This permanently deletes "${transaction.name}" and all its documents, facts, tasks and DRHP versions.\n\nType the transaction name to confirm:`);
+    if (typed !== transaction.name) {
+      if (typed !== null) setError('Name did not match — deletion cancelled.');
+      return;
+    }
+    setError(null);
+    try {
+      await transactionsApi.deleteTransaction(id);
+      navigate('/home');
+    } catch (err) {
+      setError(err.message);
     }
   }
 
@@ -229,7 +301,15 @@ export default function TransactionDetailPage() {
 
   return (
     <div className="page">
-      <h1>{transaction.name}</h1>
+      <div className="page-header">
+        <h1>{transaction.name}</h1>
+        <div className="inline-form">
+          <button className="secondary" onClick={handleLeave}>Leave transaction</button>
+          {myMembership?.role === 'ISSUER_ADMIN' && (
+            <button className="danger" onClick={handleDeleteTransaction}>Delete transaction</button>
+          )}
+        </div>
+      </div>
       <div className="detail-grid">
         <div><strong>Company</strong><span>{transaction.companyName}</span></div>
         <div><strong>Lead organization</strong><span><Link to={`/organizations/${transaction.leadOrganizationId}`}>{transaction.leadOrganizationName}</Link></span></div>
@@ -245,7 +325,21 @@ export default function TransactionDetailPage() {
       </div>
       {error && <div className="error-banner">{error}</div>}
 
-      {approvalStatus && (
+      <nav className="tab-strip">
+        {TABS.map((t) => (
+          <button
+            key={t.key}
+            className={`tab-button${tab === t.key ? ' active' : ''}`}
+            onClick={() => setTab(t.key)}
+          >
+            {t.label}
+            {t.key === 'documents' && evidence.length > 0 && <span className="tab-count">{evidence.length}</span>}
+            {t.key === 'tasks' && tasks.length > 0 && <span className="tab-count">{tasks.length}</span>}
+          </button>
+        ))}
+      </nav>
+
+      {tab === 'overview' && approvalStatus && (
         <div className="detail-grid">
           <div>
             <strong>Approval to activate</strong>
@@ -264,12 +358,26 @@ export default function TransactionDetailPage() {
         </div>
       )}
 
-      <ReadinessPanel
-        readiness={readiness}
-        onEvaluate={handleEvaluateReadiness}
-        evaluating={evaluating}
-      />
+      {tab === 'overview' && (
+        <ReadinessPanel
+          readiness={readiness}
+          onEvaluate={handleEvaluateReadiness}
+          evaluating={evaluating}
+        />
+      )}
 
+      {tab === 'documents' && (
+        <DocumentsPanel
+          evidence={evidence}
+          workstreams={workstreams}
+          onUpload={handleUploadEvidence}
+          onDelete={handleDeleteEvidence}
+          onReprocess={handleReprocessEvidence}
+          onDownload={(evidenceId) => evidenceApi.downloadEvidence(evidenceId)}
+        />
+      )}
+
+      {tab === 'tasks' && (
       <TaskBoard
         tasks={tasks}
         members={memberships}
@@ -277,11 +385,13 @@ export default function TransactionDetailPage() {
         onAssign={(taskId, assignedUserId) => patchTask(taskId, { assignedUserId })}
         onResolutionNote={(taskId, resolutionNote) => patchTask(taskId, { resolutionNote })}
         onInviteAdvisor={() => {
+          setTab('team');
           setShowInviteForm(true);
-          document.querySelector('.card-form')?.scrollIntoView({ behavior: 'smooth' });
         }}
       />
+      )}
 
+      {tab === 'drhp' && (
       <DrhpPanel
         disclosures={disclosures}
         document={drhpDocument}
@@ -291,7 +401,10 @@ export default function TransactionDetailPage() {
         onCreateDisclosure={handleCreateDisclosure}
         onUpdateDisclosure={handleUpdateDisclosure}
       />
+      )}
 
+      {tab === 'team' && (
+      <>
       <div className="page-header"><h2>Team &amp; Advisory</h2></div>
 
       <h3 className="eyebrow" style={{ marginTop: '1rem' }}>Members</h3>
@@ -390,6 +503,11 @@ export default function TransactionDetailPage() {
         </tbody>
       </table>
 
+      </>
+      )}
+
+      {tab === 'overview' && (
+      <>
       <div className="page-header">
         <h2>Workstreams</h2>
         <button onClick={() => setShowWsForm((s) => !s)}>{showWsForm ? 'Cancel' : 'New workstream'}</button>
@@ -420,6 +538,8 @@ export default function TransactionDetailPage() {
         ))}
         {workstreams.length === 0 && <li className="hint">No workstreams yet.</li>}
       </ul>
+      </>
+      )}
     </div>
   );
 }

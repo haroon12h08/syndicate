@@ -76,6 +76,18 @@ public class TransactionController {
         return transactionService.addMembership(id, request, currentUser.getId());
     }
 
+    @DeleteMapping("/api/transactions/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void delete(@PathVariable UUID id, @AuthenticationPrincipal User currentUser) {
+        transactionService.delete(id, currentUser.getId());
+    }
+
+    @PostMapping("/api/transactions/{id}/leave")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void leave(@PathVariable UUID id, @AuthenticationPrincipal User currentUser) {
+        transactionService.leave(id, currentUser.getId());
+    }
+
     @DeleteMapping("/api/transactions/{id}/memberships/{membershipId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void removeMembership(@PathVariable UUID id, @PathVariable UUID membershipId,

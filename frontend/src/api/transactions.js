@@ -31,3 +31,11 @@ export function addMembership(transactionId, payload) {
 export function removeMembership(transactionId, membershipId) {
   return apiDelete(`/transactions/${transactionId}/memberships/${membershipId}`);
 }
+
+export function deleteTransaction(id) {
+  return apiDelete(`/transactions/${id}`);
+}
+
+export function leaveTransaction(id) {
+  return apiPost(`/transactions/${id}/leave`);
+}

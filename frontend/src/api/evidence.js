@@ -26,3 +26,7 @@ export function reprocessEvidence(id) {
 export function pageImageUrl(evidenceId, pageNumber) {
   return apiImageBlobUrl(`/evidence/${evidenceId}/pages/${pageNumber}/image`);
 }
+
+export function listTransactionEvidence(transactionId) {
+  return apiGet(`/transactions/${transactionId}/evidence`);
+}

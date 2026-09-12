@@ -46,6 +46,7 @@ public class TransactionService {
     private final PermissionService permissionService;
     private final InvitationService invitationService;
     private final TransactionApprovalSignatureRepository approvalSignatureRepository;
+    private final TransactionDeletionService deletionService;
 
     public TransactionService(TransactionRepository transactionRepository,
                                TransactionMembershipRepository membershipRepository,
@@ -55,7 +56,8 @@ public class TransactionService {
                                UserRepository userRepository,
                                PermissionService permissionService,
                                InvitationService invitationService,
-                               TransactionApprovalSignatureRepository approvalSignatureRepository) {
+                               TransactionApprovalSignatureRepository approvalSignatureRepository,
+                               TransactionDeletionService deletionService) {
         this.transactionRepository = transactionRepository;
         this.membershipRepository = membershipRepository;
         this.companyService = companyService;
@@ -65,6 +67,7 @@ public class TransactionService {
         this.permissionService = permissionService;
         this.invitationService = invitationService;
         this.approvalSignatureRepository = approvalSignatureRepository;
+        this.deletionService = deletionService;
     }
 
     @Transactional
@@ -192,6 +195,42 @@ public class TransactionService {
             throw new ResourceNotFoundException("Membership not found: " + membershipId);
         }
         permissionService.requireTransactionPermission(transactionId, callerId, Permission.TRANSACTION_MEMBERSHIP_MANAGE);
+        membershipRepository.delete(membership);
+    }
+
+    /**
+     * Permanently deletes the transaction and everything derived from it. Restricted to an Issuer
+     * Admin: this destroys diligence history, so it is not something any member may trigger.
+     */
+    @Transactional
+    public void delete(UUID transactionId, UUID callerId) {
+        TransactionRole role = permissionService.requireTransactionMembershipRole(transactionId, callerId);
+        if (role != TransactionRole.ISSUER_ADMIN) {
+            throw new ForbiddenException("Only the Issuer Admin can delete a transaction");
+        }
+        deletionService.deleteTransaction(transactionId);
+    }
+
+    /**
+     * Self-removal. The last Issuer Admin cannot walk out and strand the deal with nobody able to
+     * manage it, so that case is refused rather than silently leaving an unmanageable transaction.
+     */
+    @Transactional
+    public void leave(UUID transactionId, UUID callerId) {
+        TransactionMembership membership = membershipRepository
+                .findByTransactionIdAndUserId(transactionId, callerId)
+                .orElseThrow(() -> new ForbiddenException("You are not a member of this transaction"));
+
+        if (membership.getRole() == TransactionRole.ISSUER_ADMIN) {
+            long remainingAdmins = membershipRepository.findByTransactionId(transactionId).stream()
+                    .filter(m -> m.getRole() == TransactionRole.ISSUER_ADMIN)
+                    .filter(m -> !m.getUser().getId().equals(callerId))
+                    .count();
+            if (remainingAdmins == 0) {
+                throw new BadRequestException(
+                        "You are the last Issuer Admin. Appoint another before leaving, or delete the transaction.");
+            }
+        }
         membershipRepository.delete(membership);
     }
 
