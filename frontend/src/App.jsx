@@ -13,6 +13,7 @@ import CompaniesPage from './pages/CompaniesPage';
 import CompanyDetailPage from './pages/CompanyDetailPage';
 import TransactionDetailPage from './pages/TransactionDetailPage';
 import WorkstreamDetailPage from './pages/WorkstreamDetailPage';
+import FactTracePage from './pages/FactTracePage';
 
 function Shell({ children }) {
   return (
@@ -37,6 +38,7 @@ export default function App() {
         <Route path="/companies/:id" element={<Shell><CompanyDetailPage /></Shell>} />
         <Route path="/transactions/:id" element={<Shell><TransactionDetailPage /></Shell>} />
         <Route path="/workstreams/:id" element={<Shell><WorkstreamDetailPage /></Shell>} />
+        <Route path="/facts/:id/trace" element={<Shell><FactTracePage /></Shell>} />
       </Routes>
     </AuthProvider>
   );

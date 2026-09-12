@@ -14,4 +14,6 @@ public interface FactRepository extends JpaRepository<Fact, UUID> {
     Optional<Fact> findBySupersedesFactId(UUID supersedesFactId);
 
     List<Fact> findByWorkstreamTransactionIdAndStatus(UUID transactionId, FactStatus status);
+
+    List<Fact> findByWorkstreamTransactionId(UUID transactionId);
 }

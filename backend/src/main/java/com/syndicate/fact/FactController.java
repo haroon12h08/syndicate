@@ -2,6 +2,7 @@ package com.syndicate.fact;
 
 import com.syndicate.fact.dto.CreateFactRequest;
 import com.syndicate.fact.dto.FactDto;
+import com.syndicate.fact.dto.FactTraceDto;
 import com.syndicate.fact.dto.UpdateFactRequest;
 import com.syndicate.user.User;
 import jakarta.validation.Valid;
@@ -41,6 +42,11 @@ public class FactController {
             return factService.listAsOf(workstreamId, asOf, currentUser.getId());
         }
         return factService.list(workstreamId, includeSuperseded, currentUser.getId());
+    }
+
+    @GetMapping("/api/facts/{id}/trace")
+    public FactTraceDto trace(@PathVariable UUID id, @AuthenticationPrincipal User currentUser) {
+        return factService.trace(id, currentUser.getId());
     }
 
     @GetMapping("/api/facts/{id}/history")

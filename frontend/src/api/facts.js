@@ -8,6 +8,10 @@ export function listFactsAsOf(workstreamId, asOf) {
   return apiGet(`/workstreams/${workstreamId}/facts?asOf=${encodeURIComponent(asOf)}`);
 }
 
+export function getFactTrace(id) {
+  return apiGet(`/facts/${id}/trace`);
+}
+
 export function getFactHistory(id) {
   return apiGet(`/facts/${id}/history`);
 }

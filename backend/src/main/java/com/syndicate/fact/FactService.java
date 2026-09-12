@@ -5,10 +5,14 @@ import com.syndicate.common.ForbiddenException;
 import com.syndicate.common.ResourceNotFoundException;
 import com.syndicate.evidence.Evidence;
 import com.syndicate.evidence.EvidenceRepository;
+import com.syndicate.candidatefact.CandidateFact;
+import com.syndicate.candidatefact.CandidateFactRepository;
 import com.syndicate.fact.dto.CreateFactRequest;
 import com.syndicate.fact.dto.FactDto;
+import com.syndicate.fact.dto.FactTraceDto;
 import com.syndicate.fact.dto.UpdateFactRequest;
 import com.syndicate.permission.PermissionService;
+import com.syndicate.drhp.ChangePropagationService;
 import com.syndicate.regulatory.ReadinessService;
 import com.syndicate.transaction.TransactionRole;
 import com.syndicate.user.User;
@@ -34,15 +38,21 @@ public class FactService {
     private final WorkstreamService workstreamService;
     private final PermissionService permissionService;
     private final ReadinessService readinessService;
+    private final ChangePropagationService changePropagationService;
+    private final CandidateFactRepository candidateFactRepository;
 
     public FactService(FactRepository factRepository, EvidenceRepository evidenceRepository,
                         WorkstreamService workstreamService, PermissionService permissionService,
-                        ReadinessService readinessService) {
+                        ReadinessService readinessService,
+                        ChangePropagationService changePropagationService,
+                        CandidateFactRepository candidateFactRepository) {
         this.factRepository = factRepository;
         this.evidenceRepository = evidenceRepository;
         this.workstreamService = workstreamService;
         this.permissionService = permissionService;
         this.readinessService = readinessService;
+        this.changePropagationService = changePropagationService;
+        this.candidateFactRepository = candidateFactRepository;
     }
 
     @Transactional
@@ -110,6 +120,40 @@ public class FactService {
         }
     }
 
+    /** Follows a fact back to its evidence and, when it came from a document, its page region. */
+    public FactTraceDto trace(UUID factId, UUID callerId) {
+        Fact fact = findFact(factId);
+        workstreamService.requireAccess(fact.getWorkstream().getId(), callerId);
+
+        List<FactTraceDto.EvidenceRefDto> evidence = fact.getEvidence().stream()
+                .map(e -> new FactTraceDto.EvidenceRefDto(e.getId(), e.getFileName(),
+                        e.getDocumentType() != null ? e.getDocumentType().name() : null))
+                .toList();
+
+        FactTraceDto.SpatialOriginDto origin = candidateFactRepository.findByResultingFactId(factId)
+                .map(this::toOrigin)
+                .orElse(null);
+
+        return new FactTraceDto(FactDto.from(fact), evidence, origin);
+    }
+
+    private FactTraceDto.SpatialOriginDto toOrigin(CandidateFact candidate) {
+        return new FactTraceDto.SpatialOriginDto(
+                candidate.getId(),
+                candidate.getEvidence().getId(),
+                candidate.getEvidence().getFileName(),
+                candidate.getPageNumber(),
+                candidate.getBboxX(),
+                candidate.getBboxY(),
+                candidate.getBboxWidth(),
+                candidate.getBboxHeight(),
+                candidate.getPageImageWidth(),
+                candidate.getPageImageHeight(),
+                candidate.getSource() != null ? candidate.getSource().name() : null,
+                candidate.getReviewedByUser() != null ? candidate.getReviewedByUser().getFullName() : null,
+                candidate.getReviewedAt());
+    }
+
     public FactDto get(UUID factId, UUID callerId) {
         Fact fact = findFact(factId);
         workstreamService.requireAccess(fact.getWorkstream().getId(), callerId);
@@ -131,7 +175,12 @@ public class FactService {
         Fact newFact = new Fact(oldFact.getWorkstream(), request.label(), request.value(), request.unit(),
                 request.period(), oldFact, oldFact.getVersion() + 1, caller, validFrom, request.validTo());
         Fact saved = factRepository.save(newFact);
-        scheduleReadinessReevaluation(oldFact.getWorkstream().getTransaction().getId(), caller);
+        UUID supersededId = oldFact.getId();
+        String supersededLabel = oldFact.getLabel();
+        scheduleAfterCommit(() -> {
+            changePropagationService.propagateFactSuperseded(supersededId, supersededLabel);
+            readinessService.reevaluateQuietly(transactionId(oldFact), caller);
+        });
         return FactDto.from(saved);
     }
 
@@ -159,14 +208,22 @@ public class FactService {
      * failure there would roll back the fact change that triggered it.
      */
     private void scheduleReadinessReevaluation(UUID transactionId, User caller) {
+        scheduleAfterCommit(() -> readinessService.reevaluateQuietly(transactionId, caller));
+    }
+
+    private static UUID transactionId(Fact fact) {
+        return fact.getWorkstream().getTransaction().getId();
+    }
+
+    private void scheduleAfterCommit(Runnable action) {
         if (!TransactionSynchronizationManager.isSynchronizationActive()) {
-            readinessService.reevaluateQuietly(transactionId, caller);
+            action.run();
             return;
         }
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
             public void afterCommit() {
-                readinessService.reevaluateQuietly(transactionId, caller);
+                action.run();
             }
         });
     }
