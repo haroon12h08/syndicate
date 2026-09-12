@@ -29,6 +29,12 @@ public class EvidenceController {
         this.evidenceService = evidenceService;
     }
 
+    @GetMapping("/api/transactions/{transactionId}/evidence")
+    public List<EvidenceDto> listForTransaction(@PathVariable UUID transactionId,
+                                                 @AuthenticationPrincipal User currentUser) {
+        return evidenceService.listForTransaction(transactionId, currentUser.getId());
+    }
+
     @GetMapping("/api/workstreams/{workstreamId}/evidence")
     public List<EvidenceDto> list(@PathVariable UUID workstreamId, @AuthenticationPrincipal User currentUser) {
         return evidenceService.list(workstreamId, currentUser.getId());

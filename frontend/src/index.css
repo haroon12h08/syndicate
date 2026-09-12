@@ -1013,3 +1013,105 @@ button.secondary:hover {
   font-family: var(--mono);
   padding: 0.5rem;
 }
+
+/* ---------- Tabs, document upload, destructive actions ---------- */
+
+.tab-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  border-bottom: 1px solid var(--border);
+  margin: 1.5rem 0 1.25rem;
+}
+
+.tab-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: transparent;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: 0;
+  color: var(--text-muted);
+  padding: 0.55rem 1rem;
+  font-family: var(--mono);
+  font-size: 0.82rem;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  margin-bottom: -1px;
+}
+
+.tab-button:hover { color: var(--text); background: #161616; }
+
+.tab-button.active {
+  color: var(--text);
+  background: var(--surface);
+  border-color: var(--border);
+  border-bottom: 1px solid var(--surface);
+}
+
+.tab-count {
+  font-size: 0.68rem;
+  padding: 0.05rem 0.35rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-muted);
+}
+
+.upload-dropzone {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 1.25rem;
+  align-items: center;
+  border: 1px dashed #3a3a3a;
+  background: #0d0d0d;
+  padding: 1.25rem;
+  margin-bottom: 1.25rem;
+}
+
+.upload-dropzone.dragging {
+  border-color: var(--accent);
+  background: #141414;
+}
+
+.upload-dropzone-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.upload-dropzone-main strong { font-size: 0.95rem; }
+
+.upload-dropzone-main input[type="file"] {
+  color: var(--text-muted);
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  padding: 0.4rem 0;
+}
+
+.upload-dropzone-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+button.danger {
+  background: transparent;
+  border-color: #7f1d1d;
+  color: #fca5a5;
+}
+
+button.danger:hover {
+  background: rgba(127, 29, 29, 0.25);
+  border-color: #b91c1c;
+}
+
+@media (max-width: 800px) {
+  .upload-dropzone { grid-template-columns: 1fr; }
+}

@@ -7,4 +7,6 @@ import java.util.UUID;
 
 public interface EvidenceRepository extends JpaRepository<Evidence, UUID> {
     List<Evidence> findByWorkstreamId(UUID workstreamId);
+
+    List<Evidence> findByWorkstreamTransactionIdOrderByUploadedAtDesc(UUID transactionId);
 }

@@ -36,11 +36,13 @@ public class EvidenceService {
     private final PageImageCache pageImageCache;
     private final CandidateFactRepository candidateFactRepository;
     private final EvidenceFailureRecorder failureRecorder;
+    private final com.syndicate.transaction.TransactionService transactionService;
 
     public EvidenceService(EvidenceRepository evidenceRepository, WorkstreamService workstreamService,
                             FileStorageService fileStorageService, EvidenceExtractionPublisher extractionPublisher,
                             PageImageCache pageImageCache, CandidateFactRepository candidateFactRepository,
-                            EvidenceFailureRecorder failureRecorder) {
+                            EvidenceFailureRecorder failureRecorder,
+                            com.syndicate.transaction.TransactionService transactionService) {
         this.evidenceRepository = evidenceRepository;
         this.workstreamService = workstreamService;
         this.fileStorageService = fileStorageService;
@@ -48,6 +50,7 @@ public class EvidenceService {
         this.pageImageCache = pageImageCache;
         this.candidateFactRepository = candidateFactRepository;
         this.failureRecorder = failureRecorder;
+        this.transactionService = transactionService;
     }
 
     @Transactional
@@ -81,6 +84,14 @@ public class EvidenceService {
             }
         });
         return EvidenceDto.from(saved);
+    }
+
+    /** Every document on the deal, so the team has one place to work from. */
+    public List<EvidenceDto> listForTransaction(UUID transactionId, UUID callerId) {
+        transactionService.requireMembership(transactionId, callerId);
+        return evidenceRepository.findByWorkstreamTransactionIdOrderByUploadedAtDesc(transactionId).stream()
+                .map(EvidenceDto::from)
+                .toList();
     }
 
     public List<EvidenceDto> list(UUID workstreamId, UUID callerId) {
