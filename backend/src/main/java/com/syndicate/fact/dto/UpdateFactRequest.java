@@ -10,6 +10,7 @@ public record UpdateFactRequest(
         String unit,
         String period,
         Instant validFrom,
-        Instant validTo
+        Instant validTo,
+        String reason
 ) {
 }

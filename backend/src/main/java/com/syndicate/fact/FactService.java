@@ -12,6 +12,9 @@ import com.syndicate.fact.dto.FactDto;
 import com.syndicate.fact.dto.FactTraceDto;
 import com.syndicate.fact.dto.UpdateFactRequest;
 import com.syndicate.permission.PermissionService;
+import com.syndicate.audit.AuditAction;
+import com.syndicate.audit.AuditService;
+import com.syndicate.conflict.ConflictDetectionService;
 import com.syndicate.drhp.ChangePropagationService;
 import com.syndicate.regulatory.ReadinessService;
 import com.syndicate.transaction.TransactionRole;
@@ -40,12 +43,16 @@ public class FactService {
     private final ReadinessService readinessService;
     private final ChangePropagationService changePropagationService;
     private final CandidateFactRepository candidateFactRepository;
+    private final ConflictDetectionService conflictDetectionService;
+    private final AuditService auditService;
 
     public FactService(FactRepository factRepository, EvidenceRepository evidenceRepository,
                         WorkstreamService workstreamService, PermissionService permissionService,
                         ReadinessService readinessService,
                         ChangePropagationService changePropagationService,
-                        CandidateFactRepository candidateFactRepository) {
+                        CandidateFactRepository candidateFactRepository,
+                        ConflictDetectionService conflictDetectionService,
+                        AuditService auditService) {
         this.factRepository = factRepository;
         this.evidenceRepository = evidenceRepository;
         this.workstreamService = workstreamService;
@@ -53,6 +60,8 @@ public class FactService {
         this.readinessService = readinessService;
         this.changePropagationService = changePropagationService;
         this.candidateFactRepository = candidateFactRepository;
+        this.conflictDetectionService = conflictDetectionService;
+        this.auditService = auditService;
     }
 
     @Transactional
@@ -63,7 +72,12 @@ public class FactService {
         requireOrderedValidityWindow(validFrom, request.validTo());
         Fact fact = new Fact(workstream, request.label(), request.value(), request.unit(), request.period(),
                 null, 1, caller, validFrom, request.validTo());
-        return FactDto.from(factRepository.save(fact));
+        Fact saved = factRepository.save(fact);
+        UUID txId = workstream.getTransaction().getId();
+        auditService.record(txId, caller, AuditAction.FACT_CREATED, "Fact", saved.getId(),
+                "Recorded " + saved.getLabel() + " = " + saved.getValue(), null, saved.getValue(), null);
+        scheduleAfterCommit(() -> conflictDetectionService.detectQuietly(txId, caller));
+        return FactDto.from(saved);
     }
 
     public List<FactDto> list(UUID workstreamId, boolean includeSuperseded, UUID callerId) {
@@ -176,10 +190,15 @@ public class FactService {
                 request.period(), oldFact, oldFact.getVersion() + 1, caller, validFrom, request.validTo());
         Fact saved = factRepository.save(newFact);
         UUID supersededId = oldFact.getId();
+        String oldValue = oldFact.getValue();
         String supersededLabel = oldFact.getLabel();
+        UUID txId = transactionId(oldFact);
+        auditService.record(txId, caller, AuditAction.FACT_SUPERSEDED, "Fact", saved.getId(),
+                "Corrected " + supersededLabel, oldValue, saved.getValue(), request.reason());
         scheduleAfterCommit(() -> {
             changePropagationService.propagateFactSuperseded(supersededId, supersededLabel);
-            readinessService.reevaluateQuietly(transactionId(oldFact), caller);
+            readinessService.reevaluateQuietly(txId, caller);
+            conflictDetectionService.detectQuietly(txId, caller);
         });
         return FactDto.from(saved);
     }
@@ -198,7 +217,13 @@ public class FactService {
             }
         }
         fact.markVerified(caller, Instant.now());
-        scheduleReadinessReevaluation(workstream.getTransaction().getId(), caller);
+        UUID txId = workstream.getTransaction().getId();
+        auditService.record(txId, caller, AuditAction.FACT_VERIFIED, "Fact", fact.getId(),
+                "Verified " + fact.getLabel() + " = " + fact.getValue());
+        scheduleAfterCommit(() -> {
+            readinessService.reevaluateQuietly(txId, caller);
+            conflictDetectionService.detectQuietly(txId, caller);
+        });
         return FactDto.from(fact);
     }
 

@@ -16,7 +16,7 @@ function formatSize(bytes) {
 }
 
 export default function DocumentsPanel({
-  evidence, workstreams, onUpload, onDelete, onReprocess, onDownload,
+  evidence, workstreams, onUpload, onDelete, onReprocess, onDownload, onCreateWorkstream,
 }) {
   const [workstreamId, setWorkstreamId] = useState('');
   const [documentType, setDocumentType] = useState(EVIDENCE_DOCUMENT_TYPES[0]);
@@ -50,9 +50,13 @@ export default function DocumentsPanel({
       <div className="page-header"><h2>Documents</h2></div>
 
       {workstreams.length === 0 ? (
-        <p className="hint">
-          Create a workstream first — documents are filed against the workstream they belong to.
-        </p>
+        <div className="empty-state">
+          <span>
+            Create a workstream first — documents are filed against the workstream they
+            belong to, so the right team reviews them.
+          </span>
+          <button onClick={onCreateWorkstream}>New workstream</button>
+        </div>
       ) : (
         <form
           className={`upload-dropzone${dragging ? ' dragging' : ''}`}

@@ -1115,3 +1115,144 @@ button.danger:hover {
 @media (max-width: 800px) {
   .upload-dropzone { grid-template-columns: 1fr; }
 }
+
+/* ---------- Onboarding, empty states, callouts ---------- */
+
+.page-intro {
+  max-width: 62ch;
+  line-height: 1.65;
+  margin-bottom: 1.25rem;
+}
+
+.page-actions { margin: 1.25rem 0 1.75rem; }
+
+.callout {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  background: var(--surface);
+  padding: 0.9rem 1.1rem;
+  margin: 1.25rem 0;
+}
+
+.quickstart {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  padding: 1.4rem 1.6rem;
+  margin: 1.5rem 0;
+}
+
+.quickstart h2 { margin-bottom: 1rem; }
+
+.quickstart-steps {
+  list-style: none;
+  counter-reset: step;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+}
+
+.quickstart-steps li {
+  counter-increment: step;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-areas: "num title" "num hint" "num action";
+  column-gap: 0.9rem;
+  row-gap: 0.3rem;
+  align-items: start;
+}
+
+.quickstart-steps li::before {
+  content: counter(step);
+  grid-area: num;
+  width: 1.65rem;
+  height: 1.65rem;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.quickstart-steps li strong { grid-area: title; }
+.quickstart-steps li .hint { grid-area: hint; max-width: 60ch; line-height: 1.55; }
+.quickstart-steps li button,
+.quickstart-steps li a { grid-area: action; justify-self: start; margin-top: 0.35rem; }
+
+.empty-state {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  color: var(--text-muted);
+  background: var(--surface);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  padding: 1rem 1.1rem;
+}
+
+.empty-state span { max-width: 62ch; line-height: 1.55; }
+
+/* Stat tiles double as links on the dashboard */
+a.stat-tile { text-decoration: none; color: inherit; display: block; }
+a.stat-tile:hover { border-color: #4a4a4a; }
+
+/* Keep action buttons inside a detail grid from stretching the full cell */
+.detail-grid > div > button { justify-self: start; align-self: start; width: auto; }
+.detail-grid button { width: auto; }
+
+/* ---------- Breadcrumb + audit timeline ---------- */
+
+.breadcrumb-back {
+  display: inline-block;
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: 0.8rem;
+  margin-bottom: 0.75rem;
+}
+
+.breadcrumb-back:hover { color: var(--text); }
+
+.timeline {
+  list-style: none;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.timeline li {
+  display: grid;
+  grid-template-columns: 190px 1fr;
+  gap: 1rem;
+  padding: 0.85rem 0;
+  border-top: 1px solid var(--border);
+}
+
+.timeline li:last-child { border-bottom: 1px solid var(--border); }
+
+.timeline-time {
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  padding-top: 0.15rem;
+}
+
+.timeline-body { display: flex; flex-direction: column; gap: 0.3rem; }
+
+.timeline-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 720px) {
+  .timeline li { grid-template-columns: 1fr; gap: 0.25rem; }
+}
