@@ -1,7 +1,10 @@
 package com.syndicate.transaction;
 
 import com.syndicate.transaction.dto.AddTransactionMembershipRequest;
+import com.syndicate.transaction.dto.ApprovalStatusDto;
+import com.syndicate.transaction.dto.ApprovalSignatureDto;
 import com.syndicate.transaction.dto.CreateTransactionRequest;
+import com.syndicate.transaction.dto.SignApprovalRequest;
 import com.syndicate.transaction.dto.TransactionDto;
 import com.syndicate.transaction.dto.TransactionMembershipDto;
 import com.syndicate.transaction.dto.UpdateTransactionRequest;
@@ -15,7 +18,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -78,5 +81,18 @@ public class TransactionController {
     public void removeMembership(@PathVariable UUID id, @PathVariable UUID membershipId,
                                   @AuthenticationPrincipal User currentUser) {
         transactionService.removeMembership(id, membershipId, currentUser.getId());
+    }
+
+    @PostMapping("/api/transactions/{id}/approval-signatures")
+    @ResponseStatus(HttpStatus.CREATED)
+    public ApprovalSignatureDto signApproval(@PathVariable UUID id, @Valid @RequestBody SignApprovalRequest request,
+                                              @AuthenticationPrincipal User currentUser) {
+        return transactionService.signApproval(id, request, currentUser);
+    }
+
+    @GetMapping("/api/transactions/{id}/approval-signatures")
+    public ApprovalStatusDto approvalStatus(@PathVariable UUID id, @RequestParam String transition,
+                                             @AuthenticationPrincipal User currentUser) {
+        return transactionService.getApprovalStatus(id, transition, currentUser.getId());
     }
 }

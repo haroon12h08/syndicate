@@ -1,5 +1,6 @@
 package com.syndicate.issue;
 
+import com.syndicate.common.ForbiddenException;
 import com.syndicate.common.ResourceNotFoundException;
 import com.syndicate.evidence.Evidence;
 import com.syndicate.evidence.EvidenceRepository;
@@ -8,10 +9,13 @@ import com.syndicate.fact.FactRepository;
 import com.syndicate.issue.dto.CreateIssueRequest;
 import com.syndicate.issue.dto.IssueDto;
 import com.syndicate.issue.dto.UpdateIssueRequest;
+import com.syndicate.permission.PermissionService;
+import com.syndicate.transaction.TransactionRole;
 import com.syndicate.user.User;
 import com.syndicate.user.UserRepository;
 import com.syndicate.workstream.Workstream;
 import com.syndicate.workstream.WorkstreamService;
+import com.syndicate.workstream.WorkstreamType;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,15 +32,17 @@ public class IssueService {
     private final FactRepository factRepository;
     private final EvidenceRepository evidenceRepository;
     private final UserRepository userRepository;
+    private final PermissionService permissionService;
 
     public IssueService(IssueRepository issueRepository, WorkstreamService workstreamService,
                          FactRepository factRepository, EvidenceRepository evidenceRepository,
-                         UserRepository userRepository) {
+                         UserRepository userRepository, PermissionService permissionService) {
         this.issueRepository = issueRepository;
         this.workstreamService = workstreamService;
         this.factRepository = factRepository;
         this.evidenceRepository = evidenceRepository;
         this.userRepository = userRepository;
+        this.permissionService = permissionService;
     }
 
     @Transactional
@@ -69,7 +75,18 @@ public class IssueService {
     @Transactional
     public IssueDto update(UUID issueId, UpdateIssueRequest request, UUID callerId) {
         Issue issue = findIssue(issueId);
-        workstreamService.requireAccess(issue.getWorkstream().getId(), callerId);
+        Workstream workstream = issue.getWorkstream();
+        workstreamService.requireAccess(workstream.getId(), callerId);
+
+        boolean resolving = request.status() == IssueStatus.RESOLVED && issue.getStatus() != IssueStatus.RESOLVED;
+        if (resolving && workstream.getType() == WorkstreamType.LITIGATION) {
+            UUID transactionId = workstream.getTransaction().getId();
+            TransactionRole role = permissionService.requireTransactionMembershipRole(transactionId, callerId);
+            if (role != TransactionRole.LEAD_LAWYER && role != TransactionRole.LEGAL_ASSOCIATE) {
+                throw new ForbiddenException("Only Legal Counsel can mark a litigation issue as resolved");
+            }
+        }
+
         User owner = request.ownerUserId() != null ? findUser(request.ownerUserId()) : null;
         issue.update(request.title(), request.description(), request.severity(), request.status(),
                 owner, request.dueDate(), request.resolution());
