@@ -12,7 +12,7 @@ const EMPTY_FORM = { sectionCode: '', title: '', bodyTemplate: '', orderIndex: 0
 
 export default function DrhpPanel({
   disclosures, document: drhpDocument, compileResult, compiling,
-  onCompile, onCreateDisclosure, onUpdateDisclosure,
+  onCompile, onCreateDisclosure, onUpdateDisclosure, onInspectProvenance,
 }) {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
@@ -42,8 +42,11 @@ export default function DrhpPanel({
           <button onClick={() => setShowForm((s) => !s)} className="secondary">
             {showForm ? 'Cancel' : 'New disclosure'}
           </button>
-          <button onClick={onCompile} disabled={compiling}>
-            {compiling ? 'Compiling...' : 'Compile DRHP'}
+          <button className="secondary" onClick={() => onCompile('DRAFT_PREVIEW')} disabled={compiling}>
+            {compiling ? 'Compiling...' : 'Compile draft'}
+          </button>
+          <button onClick={() => onCompile('FINAL_FILING')} disabled={compiling}>
+            {compiling ? 'Compiling...' : 'Compile final filing'}
           </button>
         </div>
       </div>
@@ -56,7 +59,26 @@ export default function DrhpPanel({
               ? drhpDocument.lintSummary
               : drhpDocument.invalidatedReason}
             {drhpDocument.compiledAt && <> · compiled {new Date(drhpDocument.compiledAt).toLocaleString()}</>}
+            {drhpDocument.compileMode && <> · {humanize(drhpDocument.compileMode)}</>}
           </div>
+
+          {drhpDocument.merkleRoot && (
+            <div className="merkle-row">
+              <button
+                className="merkle-badge"
+                title="Inspect the cryptographic provenance manifest"
+                onClick={() => onInspectProvenance(drhpDocument.id)}
+              >
+                Root: {drhpDocument.merkleRoot.slice(0, 8)}…
+              </button>
+              <button
+                className="secondary"
+                onClick={() => navigator.clipboard?.writeText(drhpDocument.merkleRoot)}
+              >
+                Copy full SHA-256
+              </button>
+            </div>
+          )}
         </div>
       )}
 

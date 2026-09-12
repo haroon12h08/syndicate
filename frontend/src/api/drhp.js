@@ -20,10 +20,14 @@ export function unlinkFact(disclosureId, factId) {
   return apiDelete(`/disclosures/${disclosureId}/fact-links/${factId}`);
 }
 
-export function compileDrhp(transactionId) {
-  return apiPost(`/transactions/${transactionId}/drhp/compile`);
+export function compileDrhp(transactionId, mode = 'DRAFT_PREVIEW') {
+  return apiPost(`/transactions/${transactionId}/drhp/compile?mode=${mode}`);
 }
 
 export function getLatestDrhp(transactionId) {
   return apiGet(`/transactions/${transactionId}/drhp`);
+}
+
+export function getProvenance(drhpDocumentId) {
+  return apiGet(`/drhp/versions/${drhpDocumentId}/provenance`);
 }
