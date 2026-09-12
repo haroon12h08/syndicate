@@ -21,6 +21,10 @@ public record FactDto(
         UserDto createdBy,
         UserDto verifiedBy,
         Instant verifiedAt,
+        Instant validFrom,
+        Instant validTo,
+        Instant systemRecordedAt,
+        Instant systemSupersededAt,
         List<UUID> evidenceIds
 ) {
     public static FactDto from(Fact fact) {
@@ -37,6 +41,10 @@ public record FactDto(
                 UserDto.from(fact.getCreatedByUser()),
                 fact.getVerifiedByUser() != null ? UserDto.from(fact.getVerifiedByUser()) : null,
                 fact.getVerifiedAt(),
+                fact.getValidFrom(),
+                fact.getValidTo(),
+                fact.getCreatedAt(),
+                fact.getSystemSupersededAt(),
                 fact.getEvidence().stream().map(e -> e.getId()).toList()
         );
     }

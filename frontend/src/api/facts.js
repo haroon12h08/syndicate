@@ -4,6 +4,14 @@ export function listFacts(workstreamId, includeSuperseded = false) {
   return apiGet(`/workstreams/${workstreamId}/facts?includeSuperseded=${includeSuperseded}`);
 }
 
+export function listFactsAsOf(workstreamId, asOf) {
+  return apiGet(`/workstreams/${workstreamId}/facts?asOf=${encodeURIComponent(asOf)}`);
+}
+
+export function getFactHistory(id) {
+  return apiGet(`/facts/${id}/history`);
+}
+
 export function createFact(workstreamId, payload) {
   return apiPost(`/workstreams/${workstreamId}/facts`, payload);
 }

@@ -19,6 +19,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -43,8 +44,10 @@ public class FactService {
     public FactDto create(UUID workstreamId, CreateFactRequest request, User caller) {
         workstreamService.requireAccess(workstreamId, caller.getId());
         Workstream workstream = workstreamService.findWorkstream(workstreamId);
+        Instant validFrom = request.validFrom() != null ? request.validFrom() : Instant.now();
+        requireOrderedValidityWindow(validFrom, request.validTo());
         Fact fact = new Fact(workstream, request.label(), request.value(), request.unit(), request.period(),
-                null, 1, caller);
+                null, 1, caller, validFrom, request.validTo());
         return FactDto.from(factRepository.save(fact));
     }
 
@@ -54,6 +57,52 @@ public class FactService {
                 ? factRepository.findByWorkstreamId(workstreamId)
                 : factRepository.findByWorkstreamIdAndStatusNot(workstreamId, FactStatus.SUPERSEDED);
         return facts.stream().map(FactDto::from).toList();
+    }
+
+    /**
+     * Reconstructs what the workstream's facts looked like to Syndicate at a past instant:
+     * the version of each fact that had been recorded by then and had not yet been replaced.
+     */
+    public List<FactDto> listAsOf(UUID workstreamId, Instant asOf, UUID callerId) {
+        workstreamService.requireAccess(workstreamId, callerId);
+        return factRepository.findByWorkstreamId(workstreamId).stream()
+                .filter(fact -> wasSystemCurrentAt(fact, asOf))
+                .map(FactDto::from)
+                .toList();
+    }
+
+    private boolean wasSystemCurrentAt(Fact fact, Instant asOf) {
+        if (fact.getCreatedAt().isAfter(asOf)) {
+            return false;
+        }
+        return fact.getSystemSupersededAt() == null || fact.getSystemSupersededAt().isAfter(asOf);
+    }
+
+    /**
+     * Returns every version of the fact's supersede chain, oldest first, regardless of which
+     * version's id was asked for.
+     */
+    public List<FactDto> history(UUID factId, UUID callerId) {
+        Fact fact = findFact(factId);
+        workstreamService.requireAccess(fact.getWorkstream().getId(), callerId);
+
+        Fact genesis = fact;
+        while (genesis.getSupersedesFact() != null) {
+            genesis = genesis.getSupersedesFact();
+        }
+
+        List<FactDto> chain = new ArrayList<>();
+        for (Fact version = genesis; version != null;
+             version = factRepository.findBySupersedesFactId(version.getId()).orElse(null)) {
+            chain.add(FactDto.from(version));
+        }
+        return chain;
+    }
+
+    private void requireOrderedValidityWindow(Instant validFrom, Instant validTo) {
+        if (validTo != null && validTo.isBefore(validFrom)) {
+            throw new BadRequestException("validTo must not be before validFrom");
+        }
     }
 
     public FactDto get(UUID factId, UUID callerId) {
@@ -69,9 +118,13 @@ public class FactService {
         if (oldFact.getStatus() == FactStatus.SUPERSEDED) {
             throw new BadRequestException("This fact has already been superseded");
         }
-        oldFact.setStatus(FactStatus.SUPERSEDED);
+        Instant now = Instant.now();
+        Instant validFrom = request.validFrom() != null ? request.validFrom() : now;
+        requireOrderedValidityWindow(validFrom, request.validTo());
+
+        oldFact.markSuperseded(now, validFrom);
         Fact newFact = new Fact(oldFact.getWorkstream(), request.label(), request.value(), request.unit(),
-                request.period(), oldFact, oldFact.getVersion() + 1, caller);
+                request.period(), oldFact, oldFact.getVersion() + 1, caller, validFrom, request.validTo());
         return FactDto.from(factRepository.save(newFact));
     }
 

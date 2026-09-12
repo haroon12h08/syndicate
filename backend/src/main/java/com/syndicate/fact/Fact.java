@@ -61,6 +61,15 @@ public class Fact extends BaseEntity {
     @Column(name = "verified_at")
     private Instant verifiedAt;
 
+    @Column(name = "valid_from", nullable = false)
+    private Instant validFrom;
+
+    @Column(name = "valid_to")
+    private Instant validTo;
+
+    @Column(name = "system_superseded_at")
+    private Instant systemSupersededAt;
+
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
             name = "fact_evidence_link",
@@ -73,7 +82,7 @@ public class Fact extends BaseEntity {
     }
 
     public Fact(Workstream workstream, String label, String value, String unit, String period,
-                Fact supersedesFact, int version, User createdByUser) {
+                Fact supersedesFact, int version, User createdByUser, Instant validFrom, Instant validTo) {
         this.workstream = workstream;
         this.label = label;
         this.value = value;
@@ -83,6 +92,8 @@ public class Fact extends BaseEntity {
         this.version = version;
         this.supersedesFact = supersedesFact;
         this.createdByUser = createdByUser;
+        this.validFrom = validFrom;
+        this.validTo = validTo;
     }
 
     public Workstream getWorkstream() {
@@ -137,6 +148,30 @@ public class Fact extends BaseEntity {
         this.status = FactStatus.VERIFIED;
         this.verifiedByUser = verifier;
         this.verifiedAt = at;
+    }
+
+    public Instant getValidFrom() {
+        return validFrom;
+    }
+
+    public Instant getValidTo() {
+        return validTo;
+    }
+
+    public Instant getSystemSupersededAt() {
+        return systemSupersededAt;
+    }
+
+    /**
+     * Closes both time axes: system time always closes now, business time only if it was
+     * still open — an explicitly backdated valid_to set earlier is never overwritten.
+     */
+    public void markSuperseded(Instant supersededAt, Instant businessValidUntil) {
+        this.status = FactStatus.SUPERSEDED;
+        this.systemSupersededAt = supersededAt;
+        if (this.validTo == null) {
+            this.validTo = businessValidUntil;
+        }
     }
 
     public Set<Evidence> getEvidence() {

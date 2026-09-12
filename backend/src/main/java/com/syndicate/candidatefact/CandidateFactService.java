@@ -12,6 +12,7 @@ import com.syndicate.workstream.WorkstreamService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -54,7 +55,8 @@ public class CandidateFactService {
         String value = request.value() != null ? request.value() : candidate.getValue();
         String period = request.period() != null ? request.period() : candidate.getPeriod();
 
-        Fact fact = new Fact(candidate.getWorkstream(), label, value, request.unit(), period, null, 1, caller);
+        Fact fact = new Fact(candidate.getWorkstream(), label, value, request.unit(), period, null, 1, caller,
+                Instant.now(), null);
         fact.getEvidence().add(candidate.getEvidence());
         Fact savedFact = factRepository.save(fact);
 
