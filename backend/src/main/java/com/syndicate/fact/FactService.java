@@ -1,15 +1,20 @@
 package com.syndicate.fact;
 
 import com.syndicate.common.BadRequestException;
+import com.syndicate.common.ForbiddenException;
 import com.syndicate.common.ResourceNotFoundException;
 import com.syndicate.evidence.Evidence;
 import com.syndicate.evidence.EvidenceRepository;
 import com.syndicate.fact.dto.CreateFactRequest;
 import com.syndicate.fact.dto.FactDto;
 import com.syndicate.fact.dto.UpdateFactRequest;
+import com.syndicate.permission.Permission;
+import com.syndicate.permission.PermissionService;
+import com.syndicate.transaction.TransactionRole;
 import com.syndicate.user.User;
 import com.syndicate.workstream.Workstream;
 import com.syndicate.workstream.WorkstreamService;
+import com.syndicate.workstream.WorkstreamType;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,12 +29,14 @@ public class FactService {
     private final FactRepository factRepository;
     private final EvidenceRepository evidenceRepository;
     private final WorkstreamService workstreamService;
+    private final PermissionService permissionService;
 
     public FactService(FactRepository factRepository, EvidenceRepository evidenceRepository,
-                        WorkstreamService workstreamService) {
+                        WorkstreamService workstreamService, PermissionService permissionService) {
         this.factRepository = factRepository;
         this.evidenceRepository = evidenceRepository;
         this.workstreamService = workstreamService;
+        this.permissionService = permissionService;
     }
 
     @Transactional
@@ -71,7 +78,16 @@ public class FactService {
     @Transactional
     public FactDto verify(UUID factId, User caller) {
         Fact fact = findFact(factId);
-        workstreamService.requireAccess(fact.getWorkstream().getId(), caller.getId());
+        Workstream workstream = fact.getWorkstream();
+        workstreamService.requireAccess(workstream.getId(), caller.getId());
+        if (workstream.getType() == WorkstreamType.FINANCIAL_DUE_DILIGENCE) {
+            UUID transactionId = workstream.getTransaction().getId();
+            TransactionRole role = permissionService.requireTransactionMembershipRole(transactionId, caller.getId());
+            if (role != TransactionRole.AUDITOR && role != TransactionRole.ISSUER_ADMIN) {
+                throw new ForbiddenException(
+                        "Only an Auditor or the Issuer Admin can verify facts in Financial Due Diligence");
+            }
+        }
         fact.markVerified(caller, Instant.now());
         return FactDto.from(fact);
     }

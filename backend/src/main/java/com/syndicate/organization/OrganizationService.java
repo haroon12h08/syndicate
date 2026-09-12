@@ -7,6 +7,8 @@ import com.syndicate.organization.dto.AddMemberRequest;
 import com.syndicate.organization.dto.CreateOrganizationRequest;
 import com.syndicate.organization.dto.MembershipDto;
 import com.syndicate.organization.dto.OrganizationDto;
+import com.syndicate.permission.Permission;
+import com.syndicate.permission.PermissionService;
 import com.syndicate.user.User;
 import com.syndicate.user.UserRepository;
 import org.springframework.stereotype.Service;
@@ -22,13 +24,16 @@ public class OrganizationService {
     private final OrganizationRepository organizationRepository;
     private final OrganizationMembershipRepository membershipRepository;
     private final UserRepository userRepository;
+    private final PermissionService permissionService;
 
     public OrganizationService(OrganizationRepository organizationRepository,
                                 OrganizationMembershipRepository membershipRepository,
-                                UserRepository userRepository) {
+                                UserRepository userRepository,
+                                PermissionService permissionService) {
         this.organizationRepository = organizationRepository;
         this.membershipRepository = membershipRepository;
         this.userRepository = userRepository;
+        this.permissionService = permissionService;
     }
 
     @Transactional
@@ -64,12 +69,7 @@ public class OrganizationService {
 
     @Transactional
     public MembershipDto addMember(UUID organizationId, AddMemberRequest request, UUID callerId) {
-        OrganizationMembership callerMembership = membershipRepository
-                .findByOrganizationIdAndUserId(organizationId, callerId)
-                .orElseThrow(() -> new ForbiddenException("You are not a member of this organization"));
-        if (callerMembership.getRole() != OrgRole.OWNER && callerMembership.getRole() != OrgRole.ADMIN) {
-            throw new ForbiddenException("Only an OWNER or ADMIN can add members");
-        }
+        permissionService.requireOrgPermission(organizationId, callerId, Permission.ORG_MEMBERSHIP_MANAGE);
         Organization organization = findOrganization(organizationId);
         User user = userRepository.findByEmail(request.email())
                 .orElseThrow(() -> new BadRequestException("No registered user with email " + request.email()));
