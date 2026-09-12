@@ -6,8 +6,10 @@ import * as workstreamsApi from '../api/workstreams';
 import * as invitationsApi from '../api/invitations';
 import * as readinessApi from '../api/readiness';
 import * as tasksApi from '../api/tasks';
+import * as drhpApi from '../api/drhp';
 import ReadinessPanel from '../components/ReadinessPanel';
 import TaskBoard from '../components/TaskBoard';
+import DrhpPanel from '../components/DrhpPanel';
 import { TRANSACTION_ROLES, TRANSACTION_STATUSES, WORKSTREAM_TYPES, humanize } from '../constants';
 
 const SIGNER_ROLES = ['ISSUER_ADMIN', 'LEAD_BANKER'];
@@ -30,6 +32,10 @@ export default function TransactionDetailPage() {
   const [readiness, setReadiness] = useState(null);
   const [evaluating, setEvaluating] = useState(false);
   const [tasks, setTasks] = useState([]);
+  const [disclosures, setDisclosures] = useState([]);
+  const [drhpDocument, setDrhpDocument] = useState(null);
+  const [compileResult, setCompileResult] = useState(null);
+  const [compiling, setCompiling] = useState(false);
   const [error, setError] = useState(null);
 
   const [inviteMode, setInviteMode] = useState('individual');
@@ -51,6 +57,8 @@ export default function TransactionDetailPage() {
       ]);
       readinessApi.getReadiness(id).then(setReadiness).catch(() => setReadiness(null));
       tasksApi.listTasks(id).then(setTasks).catch(() => setTasks([]));
+      drhpApi.listDisclosures(id).then(setDisclosures).catch(() => setDisclosures([]));
+      drhpApi.getLatestDrhp(id).then(setDrhpDocument).catch(() => setDrhpDocument(null));
       setTransaction(txn);
       setMemberships(members);
       setWorkstreams(ws);
@@ -83,6 +91,43 @@ export default function TransactionDetailPage() {
       setError(err.message);
     } finally {
       setEvaluating(false);
+    }
+  }
+
+  async function handleCompileDrhp() {
+    setError(null);
+    setCompiling(true);
+    try {
+      const result = await drhpApi.compileDrhp(id);
+      setCompileResult(result);
+      if (result.compiled) {
+        setDrhpDocument(result.document);
+      }
+      setDisclosures(await drhpApi.listDisclosures(id));
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setCompiling(false);
+    }
+  }
+
+  async function handleCreateDisclosure(payload) {
+    setError(null);
+    try {
+      await drhpApi.createDisclosure(id, payload);
+      setDisclosures(await drhpApi.listDisclosures(id));
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  async function handleUpdateDisclosure(disclosureId, payload) {
+    setError(null);
+    try {
+      await drhpApi.updateDisclosure(disclosureId, payload);
+      setDisclosures(await drhpApi.listDisclosures(id));
+    } catch (err) {
+      setError(err.message);
     }
   }
 
@@ -235,6 +280,16 @@ export default function TransactionDetailPage() {
           setShowInviteForm(true);
           document.querySelector('.card-form')?.scrollIntoView({ behavior: 'smooth' });
         }}
+      />
+
+      <DrhpPanel
+        disclosures={disclosures}
+        document={drhpDocument}
+        compileResult={compileResult}
+        compiling={compiling}
+        onCompile={handleCompileDrhp}
+        onCreateDisclosure={handleCreateDisclosure}
+        onUpdateDisclosure={handleUpdateDisclosure}
       />
 
       <div className="page-header"><h2>Team &amp; Advisory</h2></div>

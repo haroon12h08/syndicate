@@ -926,3 +926,90 @@ button.secondary:hover {
   .kanban { grid-template-columns: 1fr; }
   .escalation-banner { flex-direction: column; align-items: flex-start; }
 }
+
+/* ---------- Phase 6: disclosures and DRHP ---------- */
+
+.drhp-panel { margin: 2rem 0; }
+
+.drhp-status {
+  border: 1px solid var(--border);
+  border-left-width: 3px;
+  background: var(--surface);
+  padding: 0.8rem 1rem;
+  margin-bottom: 1rem;
+}
+
+.drhp-status.ok { border-left-color: #4ade80; }
+.drhp-status.invalid { border-left-color: #f87171; }
+
+.lint-report {
+  border: 1px solid #7f1d1d;
+  background: rgba(127, 29, 29, 0.14);
+  padding: 0.85rem 1rem;
+  margin-bottom: 1rem;
+  color: #fca5a5;
+}
+
+.lint-report.clean {
+  border-color: #166534;
+  background: rgba(22, 101, 52, 0.14);
+  color: #86efac;
+}
+
+.lint-report ul { margin: 0.5rem 0 0; padding-left: 1.1rem; }
+.lint-report li { margin-bottom: 0.35rem; line-height: 1.45; }
+.lint-report code { color: inherit; opacity: 0.85; }
+
+.drhp-document {
+  border: 1px solid var(--border);
+  background: #0d0d0d;
+  padding: 1.25rem 1.5rem;
+}
+
+.drhp-section + .drhp-section {
+  margin-top: 1.25rem;
+  padding-top: 1.25rem;
+  border-top: 1px dashed var(--border);
+}
+
+.drhp-section h4 {
+  font-size: 0.95rem;
+  margin-bottom: 0.5rem;
+}
+
+.drhp-section p {
+  line-height: 1.75;
+  color: var(--text);
+}
+
+.fact-chip {
+  display: inline;
+  padding: 0.1rem 0.35rem;
+  margin: 0 0.1rem;
+  border: 1px solid #2f5d3f;
+  border-radius: 3px;
+  background: rgba(74, 222, 128, 0.12);
+  color: #86efac;
+  font-family: var(--mono);
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.fact-chip:hover { background: rgba(74, 222, 128, 0.22); }
+
+.unresolved-chip {
+  padding: 0.1rem 0.35rem;
+  border: 1px dashed #7f1d1d;
+  background: rgba(127, 29, 29, 0.18);
+  color: #fca5a5;
+  font-size: 0.82rem;
+}
+
+.drhp-panel textarea {
+  width: 100%;
+  background: #0d0d0d;
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: var(--mono);
+  padding: 0.5rem;
+}
