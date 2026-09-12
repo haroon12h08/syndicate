@@ -16,6 +16,8 @@ public record DrhpDocumentDto(
         String invalidatedReason,
         Instant compiledAt,
         String compiledByName,
-        List<UUID> citedFactIds
+        List<UUID> citedFactIds,
+        String compileMode,
+        String merkleRoot
 ) {
 }

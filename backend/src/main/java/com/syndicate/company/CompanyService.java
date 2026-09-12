@@ -74,6 +74,13 @@ public class CompanyService {
         return CompanyDto.from(company);
     }
 
+    /** Access-checked lookup for callers outside this package. */
+    public Company findCompanyForUser(UUID companyId, UUID callerId) {
+        Company company = findCompany(companyId);
+        requireVisible(company, callerId);
+        return company;
+    }
+
     public Company findCompany(UUID companyId) {
         return companyRepository.findById(companyId)
                 .orElseThrow(() -> new ResourceNotFoundException("Company not found: " + companyId));
