@@ -11,6 +11,7 @@ import com.syndicate.drhp.dto.DrhpDocumentDto;
 import com.syndicate.drhp.dto.LintFinding;
 import com.syndicate.drhp.dto.SaveDisclosureRequest;
 import com.syndicate.fact.Fact;
+import com.syndicate.provenance.ProvenanceService;
 import com.syndicate.fact.FactRepository;
 import com.syndicate.regulatory.RuleEvaluation;
 import com.syndicate.regulatory.RuleEvaluationRepository;
@@ -34,6 +35,7 @@ public class DrhpService {
     private final RuleEvaluationRepository ruleEvaluationRepository;
     private final TransactionService transactionService;
     private final DrhpCompiler compiler;
+    private final ProvenanceService provenanceService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public DrhpService(DisclosureRepository disclosureRepository,
@@ -41,13 +43,15 @@ public class DrhpService {
                         FactRepository factRepository,
                         RuleEvaluationRepository ruleEvaluationRepository,
                         TransactionService transactionService,
-                        DrhpCompiler compiler) {
+                        DrhpCompiler compiler,
+                        ProvenanceService provenanceService) {
         this.disclosureRepository = disclosureRepository;
         this.drhpRepository = drhpRepository;
         this.factRepository = factRepository;
         this.ruleEvaluationRepository = ruleEvaluationRepository;
         this.transactionService = transactionService;
         this.compiler = compiler;
+        this.provenanceService = provenanceService;
     }
 
     @Transactional(readOnly = true)
@@ -115,7 +119,7 @@ public class DrhpService {
      * A refused compile still returns the preview so the team can see what is missing.
      */
     @Transactional
-    public CompileResultDto compile(UUID transactionId, User caller) {
+    public CompileResultDto compile(UUID transactionId, User caller, CompileMode mode) {
         transactionService.requireMembership(transactionId, caller.getId());
         Transaction transaction = transactionService.findTransaction(transactionId);
 
@@ -138,9 +142,14 @@ public class DrhpService {
 
         DrhpDocument document = new DrhpDocument(transaction, nextVersion, writeSections(result.sections()),
                 "Compiled cleanly: " + result.sections().size() + " section(s), "
-                        + result.citedFacts().size() + " verified fact(s) cited.", caller);
+                        + result.citedFacts().size() + " verified fact(s) cited.", caller, mode);
         document.getCitedFacts().addAll(result.citedFacts());
         drhpRepository.save(document);
+
+        // A final filing carries a cryptographic proof of the exact state it was built from.
+        if (mode == CompileMode.FINAL_FILING) {
+            document.attachMerkleRoot(provenanceService.createManifest(document, caller).getMerkleRoot());
+        }
 
         return new CompileResultDto(true, toDto(document), List.of(), result.sections());
     }
@@ -183,7 +192,9 @@ public class DrhpService {
                 document.getInvalidatedReason(),
                 document.getCompiledAt(),
                 document.getCompiledByUser() != null ? document.getCompiledByUser().getFullName() : null,
-                document.getCitedFacts().stream().map(f -> f.getId()).toList());
+                document.getCitedFacts().stream().map(f -> f.getId()).toList(),
+                document.getCompileMode() != null ? document.getCompileMode().name() : null,
+                document.getMerkleRoot());
     }
 
     private String writeSections(List<CompiledSection> sections) {

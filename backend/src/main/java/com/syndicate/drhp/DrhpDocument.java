@@ -43,6 +43,14 @@ public class DrhpDocument extends BaseEntity {
     @Column(name = "invalidated_reason")
     private String invalidatedReason;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "compile_mode", nullable = false)
+    private CompileMode compileMode;
+
+    /** Root of the Merkle tree over everything this filing was compiled from. */
+    @Column(name = "merkle_root")
+    private String merkleRoot;
+
     @Column(name = "compiled_at", nullable = false)
     private Instant compiledAt;
 
@@ -63,13 +71,14 @@ public class DrhpDocument extends BaseEntity {
     }
 
     public DrhpDocument(Transaction transaction, int version, String compiledBody, String lintSummary,
-                         User compiledByUser) {
+                         User compiledByUser, CompileMode compileMode) {
         this.transaction = transaction;
         this.version = version;
         this.compiledBody = compiledBody;
         this.lintSummary = lintSummary;
         this.compiledByUser = compiledByUser;
         this.status = DrhpStatus.COMPILED;
+        this.compileMode = compileMode;
         this.compiledAt = Instant.now();
     }
 
@@ -101,6 +110,18 @@ public class DrhpDocument extends BaseEntity {
 
     public String getInvalidatedReason() {
         return invalidatedReason;
+    }
+
+    public CompileMode getCompileMode() {
+        return compileMode;
+    }
+
+    public String getMerkleRoot() {
+        return merkleRoot;
+    }
+
+    public void attachMerkleRoot(String merkleRoot) {
+        this.merkleRoot = merkleRoot;
     }
 
     public Instant getCompiledAt() {
