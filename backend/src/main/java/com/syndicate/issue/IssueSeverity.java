@@ -4,5 +4,6 @@ public enum IssueSeverity {
     LOW,
     MEDIUM,
     HIGH,
-    CRITICAL
+    CRITICAL,
+    BLOCKING
 }

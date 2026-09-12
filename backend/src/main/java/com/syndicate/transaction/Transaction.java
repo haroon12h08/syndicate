@@ -12,6 +12,8 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
+import java.time.LocalDate;
+
 @Entity
 @Table(name = "transactions")
 public class Transaction extends BaseEntity {
@@ -38,6 +40,9 @@ public class Transaction extends BaseEntity {
     protected Transaction() {
     }
 
+    @Column(name = "estimated_filing_date")
+    private LocalDate estimatedFilingDate;
+
     public Transaction(Company company, Organization leadOrganization, TransactionType type, String name) {
         this.company = company;
         this.leadOrganization = leadOrganization;
@@ -60,6 +65,14 @@ public class Transaction extends BaseEntity {
 
     public String getName() {
         return name;
+    }
+
+    public LocalDate getEstimatedFilingDate() {
+        return estimatedFilingDate;
+    }
+
+    public void setEstimatedFilingDate(LocalDate estimatedFilingDate) {
+        this.estimatedFilingDate = estimatedFilingDate;
     }
 
     public TransactionStatus getStatus() {

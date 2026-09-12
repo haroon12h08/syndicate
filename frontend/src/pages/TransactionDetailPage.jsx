@@ -4,6 +4,8 @@ import { useAuth } from '../context/AuthContext';
 import * as transactionsApi from '../api/transactions';
 import * as workstreamsApi from '../api/workstreams';
 import * as invitationsApi from '../api/invitations';
+import * as readinessApi from '../api/readiness';
+import ReadinessPanel from '../components/ReadinessPanel';
 import { TRANSACTION_ROLES, TRANSACTION_STATUSES, WORKSTREAM_TYPES, humanize } from '../constants';
 
 const SIGNER_ROLES = ['ISSUER_ADMIN', 'LEAD_BANKER'];
@@ -23,6 +25,8 @@ export default function TransactionDetailPage() {
   const [workstreams, setWorkstreams] = useState([]);
   const [invitations, setInvitations] = useState([]);
   const [approvalStatus, setApprovalStatus] = useState(null);
+  const [readiness, setReadiness] = useState(null);
+  const [evaluating, setEvaluating] = useState(false);
   const [error, setError] = useState(null);
 
   const [inviteMode, setInviteMode] = useState('individual');
@@ -42,6 +46,7 @@ export default function TransactionDetailPage() {
         workstreamsApi.listWorkstreams(id),
         invitationsApi.listTransactionInvitations(id).catch(() => []),
       ]);
+      readinessApi.getReadiness(id).then(setReadiness).catch(() => setReadiness(null));
       setTransaction(txn);
       setMemberships(members);
       setWorkstreams(ws);
@@ -64,6 +69,18 @@ export default function TransactionDetailPage() {
   const myMembership = memberships.find((m) => m.user.id === user?.id);
   const canSign = myMembership && SIGNER_ROLES.includes(myMembership.role);
   const alreadySigned = approvalStatus?.signatures.some((s) => s.signedBy.id === user?.id);
+
+  async function handleEvaluateReadiness() {
+    setError(null);
+    setEvaluating(true);
+    try {
+      setReadiness(await readinessApi.evaluateReadiness(id));
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setEvaluating(false);
+    }
+  }
 
   async function handleStatusChange(status) {
     setError(null);
@@ -187,6 +204,12 @@ export default function TransactionDetailPage() {
           )}
         </div>
       )}
+
+      <ReadinessPanel
+        readiness={readiness}
+        onEvaluate={handleEvaluateReadiness}
+        evaluating={evaluating}
+      />
 
       <div className="page-header"><h2>Team &amp; Advisory</h2></div>
 

@@ -19,6 +19,7 @@ import jakarta.persistence.Table;
 import java.time.LocalDate;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.UUID;
 
 @Entity
 @Table(name = "issues")
@@ -55,6 +56,9 @@ public class Issue extends BaseEntity {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "created_by_user_id", nullable = false)
     private User createdByUser;
+
+    @Column(name = "generated_by_rule_id")
+    private UUID generatedByRuleId;
 
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
@@ -129,6 +133,27 @@ public class Issue extends BaseEntity {
 
     public Set<Evidence> getRelatedEvidence() {
         return relatedEvidence;
+    }
+
+    public UUID getGeneratedByRuleId() {
+        return generatedByRuleId;
+    }
+
+    public void setGeneratedByRuleId(UUID generatedByRuleId) {
+        this.generatedByRuleId = generatedByRuleId;
+    }
+
+    /** Engine-driven resolution: used when a rule that raised this issue starts passing. */
+    public void autoResolve(String resolution) {
+        this.status = IssueStatus.RESOLVED;
+        this.resolution = resolution;
+    }
+
+    public void reopen(String description, IssueSeverity severity) {
+        this.status = IssueStatus.OPEN;
+        this.description = description;
+        this.severity = severity;
+        this.resolution = null;
     }
 
     public void update(String title, String description, IssueSeverity severity, IssueStatus status,
