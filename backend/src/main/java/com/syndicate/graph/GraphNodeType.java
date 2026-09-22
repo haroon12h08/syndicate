@@ -4,5 +4,6 @@ public enum GraphNodeType {
     EVIDENCE,
     FACT,
     DISCLOSURE,
-    DOCUMENT
+    DOCUMENT,
+    REVIEW
 }

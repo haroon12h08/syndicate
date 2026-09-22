@@ -56,6 +56,7 @@ public class TransactionDeletionService {
                 // Issues raised inside the transaction's workstreams
                 // Conflicts reference facts and issues, so they go first (members/resolutions cascade)
                 "DELETE FROM fact_conflicts WHERE transaction_id = :id",
+                "DELETE FROM reviews WHERE transaction_id = :id",
                 "DELETE FROM issue_fact_link WHERE issue_id IN (SELECT i.id FROM issues i "
                         + "JOIN workstreams w ON i.workstream_id = w.id WHERE w.transaction_id = :id)",
                 "DELETE FROM issue_evidence_link WHERE issue_id IN (SELECT i.id FROM issues i "
