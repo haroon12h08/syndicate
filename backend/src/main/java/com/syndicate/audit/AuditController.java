@@ -1,6 +1,7 @@
 package com.syndicate.audit;
 
 import com.syndicate.audit.dto.AuditEventDto;
+import com.syndicate.audit.dto.AuditVerificationDto;
 import com.syndicate.user.User;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -23,5 +24,10 @@ public class AuditController {
     public List<AuditEventDto> listForTransaction(@PathVariable UUID id,
                                                    @AuthenticationPrincipal User currentUser) {
         return auditService.listForTransaction(id, currentUser.getId());
+    }
+
+    @GetMapping("/api/transactions/{id}/audit/verify")
+    public AuditVerificationDto verify(@PathVariable UUID id, @AuthenticationPrincipal User currentUser) {
+        return auditService.verify(id, currentUser.getId());
     }
 }

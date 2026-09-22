@@ -2,6 +2,7 @@ package com.syndicate.audit;
 
 import com.syndicate.common.BaseEntity;
 import com.syndicate.user.User;
+import com.syndicate.common.ChecksumUtil;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -11,7 +12,9 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 
 /**
@@ -54,6 +57,18 @@ public class AuditEvent extends BaseEntity {
     @Column(name = "occurred_at", nullable = false)
     private Instant occurredAt;
 
+    @Column(name = "chain_seq", insertable = false, updatable = false)
+    private Long chainSeq;
+
+    @Column(name = "correlation_id", updatable = false)
+    private String correlationId;
+
+    @Column(name = "prev_hash", updatable = false)
+    private String prevHash;
+
+    @Column(name = "hash", updatable = false)
+    private String hash;
+
     protected AuditEvent() {
     }
 
@@ -68,7 +83,42 @@ public class AuditEvent extends BaseEntity {
         this.previousValue = previousValue;
         this.newValue = newValue;
         this.reason = reason;
-        this.occurredAt = Instant.now();
+        // Postgres keeps microseconds; truncate so the hashed value is the value that is stored
+        this.occurredAt = Instant.now().truncatedTo(ChronoUnit.MICROS);
+    }
+
+    void seal(String correlationId, String prevHash) {
+        this.correlationId = correlationId;
+        this.prevHash = prevHash;
+        this.hash = computeHash();
+    }
+
+    /** SHA-256 over the event's content and its predecessor's hash. */
+    String computeHash() {
+        String canonical = String.join("\u001f",
+                String.valueOf(transactionId),
+                actorUser == null ? "" : String.valueOf(actorUser.getId()),
+                action.name(), entityType, String.valueOf(entityId), summary,
+                String.valueOf(previousValue), String.valueOf(newValue), String.valueOf(reason),
+                occurredAt.toString(),
+                String.valueOf(correlationId), String.valueOf(prevHash));
+        return ChecksumUtil.sha256Hex(canonical.getBytes(StandardCharsets.UTF_8));
+    }
+
+    public Long getChainSeq() {
+        return chainSeq;
+    }
+
+    public String getCorrelationId() {
+        return correlationId;
+    }
+
+    public String getPrevHash() {
+        return prevHash;
+    }
+
+    public String getHash() {
+        return hash;
     }
 
     public UUID getTransactionId() {
