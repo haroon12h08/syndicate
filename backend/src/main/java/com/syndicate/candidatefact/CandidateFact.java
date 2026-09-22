@@ -188,4 +188,8 @@ public class CandidateFact extends BaseEntity {
         this.reviewedAt = Instant.now();
         this.reviewNote = note;
     }
+
+    public void supersede() {
+        this.status = CandidateFactStatus.SUPERSEDED;
+    }
 }

@@ -77,6 +77,7 @@ public class FactService {
         String factKey = factKeyResolver.resolve(request.factKey(), request.label());
         Fact fact = new Fact(workstream, factKey, request.label(), request.value(), request.unit(), request.period(),
                 null, 1, caller, validFrom, request.validTo());
+        fact.setMateriality(factKeyResolver.defaultMateriality(factKey));
         Fact saved = factRepository.save(fact);
         UUID txId = workstream.getTransaction().getId();
         auditService.record(txId, caller, AuditAction.FACT_CREATED, "Fact", saved.getId(),
@@ -198,6 +199,7 @@ public class FactService {
         oldFact.markSuperseded(now, validFrom);
         Fact newFact = new Fact(oldFact.getWorkstream(), oldFact.getFactKey(), request.label(), request.value(), request.unit(),
                 request.period(), oldFact, oldFact.getVersion() + 1, caller, validFrom, request.validTo());
+        newFact.setMateriality(oldFact.getMateriality());
         Fact saved = factRepository.save(newFact);
         String oldValue = oldFact.getValue();
         String supersededLabel = oldFact.getLabel();
@@ -221,6 +223,16 @@ public class FactService {
             UUID transactionId = workstream.getTransaction().getId();
             permissionService.requireTransactionPermission(transactionId, caller.getId(),
                     Permission.FACT_VERIFY_FINANCIAL);
+        }
+        if (fact.getStatus() != FactStatus.DRAFT) {
+            throw new ConflictException("FACT_NOT_DRAFT", "Only a draft fact can be verified (this one is "
+                    + fact.getStatus() + ")");
+        }
+        // four-eyes: whoever recorded or accepted a material fact cannot also verify it
+        if (fact.getMateriality().requiresIndependentVerification()
+                && fact.getCreatedByUser().getId().equals(caller.getId())) {
+            throw new ConflictException("FOUR_EYES_REQUIRED", "This is a " + fact.getMateriality()
+                    + " fact: it must be verified by someone other than the person who recorded it");
         }
         boolean onlyUnsupportiveEvidence = !fact.getEvidence().isEmpty() && fact.getEvidence().stream()
                 .allMatch(e -> EvidenceQuality.UNSUPPORTIVE.contains(e.getQuality()));

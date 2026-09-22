@@ -1,7 +1,9 @@
 package com.syndicate.fact.dto;
 
 import com.syndicate.fact.Fact;
+import com.syndicate.fact.FactOrigin;
 import com.syndicate.fact.FactStatus;
+import com.syndicate.fact.Materiality;
 import com.syndicate.user.UserDto;
 
 import java.time.Instant;
@@ -13,6 +15,8 @@ public record FactDto(
         UUID workstreamId,
         String factKey,
         UUID lineageId,
+        FactOrigin origin,
+        Materiality materiality,
         String label,
         String value,
         String unit,
@@ -35,6 +39,8 @@ public record FactDto(
                 fact.getWorkstream().getId(),
                 fact.getFactKey(),
                 fact.getLineageId(),
+                fact.getOrigin(),
+                fact.getMateriality(),
                 fact.getLabel(),
                 fact.getValue(),
                 fact.getUnit(),

@@ -29,7 +29,7 @@ class AuditIntegrityIT extends IntegrationTestBase {
         api = new TestApi(rest);
         tx = TransactionFixture.create(api, "LEGAL_DUE_DILIGENCE");
         UUID factId = api.create(tx.lead(), "/api/workstreams/" + tx.workstreamId() + "/facts",
-                Map.of("label", "Licence expiry", "value", "2028-03-31"));
+                Map.of("label", "Registered office pin code", "value", "400001"));
         api.call(tx.lead(), HttpMethod.POST, "/api/facts/" + factId + "/verify", null);
     }
 

@@ -10,6 +10,7 @@ import com.syndicate.audit.AuditService;
 import com.syndicate.conflict.ConflictDetectionService;
 import com.syndicate.fact.Fact;
 import com.syndicate.fact.FactKeyResolver;
+import com.syndicate.fact.FactOrigin;
 import com.syndicate.fact.FactRepository;
 import com.syndicate.user.User;
 import com.syndicate.workstream.WorkstreamService;
@@ -74,6 +75,9 @@ public class CandidateFactService {
         Fact fact = new Fact(candidate.getWorkstream(), factKeyResolver.resolve(null, label), label, value, request.unit(), period, null, 1, caller,
                 Instant.now(), null);
         fact.getEvidence().add(candidate.getEvidence());
+        // acceptance proposes a fact; it never verifies one (spec §4.2)
+        fact.setOrigin(FactOrigin.CANDIDATE);
+        fact.setMateriality(factKeyResolver.defaultMateriality(fact.getFactKey()));
         Fact savedFact = factRepository.save(fact);
 
         candidate.accept(caller, request.reviewNote(), savedFact);

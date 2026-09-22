@@ -2,6 +2,9 @@ package com.syndicate.evidence;
 
 import com.syndicate.audit.AuditAction;
 import com.syndicate.audit.AuditService;
+import com.syndicate.candidatefact.CandidateFact;
+import com.syndicate.candidatefact.CandidateFactRepository;
+import com.syndicate.candidatefact.CandidateFactStatus;
 import com.syndicate.common.BadRequestException;
 import com.syndicate.common.ChecksumUtil;
 import com.syndicate.common.ConflictException;
@@ -38,13 +41,14 @@ public class EvidenceService {
     private final FileStorageService fileStorageService;
     private final EvidenceExtractionPublisher extractionPublisher;
     private final PageImageCache pageImageCache;
+    private final CandidateFactRepository candidateFactRepository;
     private final EvidenceFailureRecorder failureRecorder;
     private final com.syndicate.transaction.TransactionService transactionService;
     private final AuditService auditService;
 
     public EvidenceService(EvidenceRepository evidenceRepository, WorkstreamService workstreamService,
                             FileStorageService fileStorageService, EvidenceExtractionPublisher extractionPublisher,
-                            PageImageCache pageImageCache,
+                            PageImageCache pageImageCache, CandidateFactRepository candidateFactRepository,
                             EvidenceFailureRecorder failureRecorder,
                             com.syndicate.transaction.TransactionService transactionService,
                             AuditService auditService) {
@@ -53,6 +57,7 @@ public class EvidenceService {
         this.fileStorageService = fileStorageService;
         this.extractionPublisher = extractionPublisher;
         this.pageImageCache = pageImageCache;
+        this.candidateFactRepository = candidateFactRepository;
         this.failureRecorder = failureRecorder;
         this.transactionService = transactionService;
         this.auditService = auditService;
@@ -101,6 +106,8 @@ public class EvidenceService {
         Evidence saved = evidenceRepository.save(Evidence.newVersionOf(parent, originalName(file),
                 fileStorageService.store(content, sha256), contentType(file), content.length, caller, sha256));
         parent.markSuperseded(Instant.now());
+        candidateFactRepository.findByEvidenceIdAndStatus(parent.getId(), CandidateFactStatus.PENDING)
+                .forEach(CandidateFact::supersede);
         auditService.record(parent.getWorkstream().getTransaction().getId(), caller, AuditAction.EVIDENCE_VERSIONED,
                 "Evidence", saved.getId(), "New version v" + saved.getVersion() + " of " + parent.getFileName(),
                 parent.getFileSha256(), sha256, reason);

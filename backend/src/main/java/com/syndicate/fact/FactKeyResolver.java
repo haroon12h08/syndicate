@@ -33,6 +33,13 @@ public class FactKeyResolver {
         return definitions.findKeyByAlias(alias).orElseGet(() -> CUSTOM_PREFIX + slug(alias));
     }
 
+    /** Materiality a new fact starts with: the catalog default, or NORMAL for custom keys. */
+    public Materiality defaultMateriality(String factKey) {
+        return definitions.findById(factKey)
+                .map(d -> Materiality.valueOf(d.getDefaultMateriality()))
+                .orElse(Materiality.NORMAL);
+    }
+
     static String normalise(String label) {
         return label == null ? "" : label.trim().toLowerCase(Locale.ROOT).replaceAll("\\s+", " ");
     }

@@ -41,6 +41,14 @@ public class Fact extends BaseEntity {
     @Column(name = "lineage_id", nullable = false, updatable = false)
     private UUID lineageId;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, updatable = false)
+    private FactOrigin origin = FactOrigin.MANUAL;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private Materiality materiality = Materiality.NORMAL;
+
     @Column(nullable = false)
     private String value;
 
@@ -119,6 +127,22 @@ public class Fact extends BaseEntity {
 
     public UUID getLineageId() {
         return lineageId;
+    }
+
+    public FactOrigin getOrigin() {
+        return origin;
+    }
+
+    public void setOrigin(FactOrigin origin) {
+        this.origin = origin;
+    }
+
+    public Materiality getMateriality() {
+        return materiality;
+    }
+
+    public void setMateriality(Materiality materiality) {
+        this.materiality = materiality;
     }
 
     public String getLabel() {
