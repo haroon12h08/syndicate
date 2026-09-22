@@ -4,6 +4,7 @@ import com.syndicate.audit.AuditAction;
 import com.syndicate.audit.AuditService;
 import com.syndicate.fact.Fact;
 import com.syndicate.fact.FactRepository;
+import com.syndicate.fact.FactValueNormalizer;
 import com.syndicate.fact.FactStatus;
 import com.syndicate.issue.Issue;
 import com.syndicate.issue.IssueRepository;
@@ -87,7 +88,7 @@ public class ConflictDetectionService {
         for (Map.Entry<String, List<Fact>> entry : grouped.entrySet()) {
             List<Fact> facts = entry.getValue();
             Set<String> distinctValues = facts.stream()
-                    .map(f -> normaliseValue(f.getValue()))
+                    .map(f -> FactValueNormalizer.canonical(f.getValue(), f.getUnit()))
                     .collect(Collectors.toCollection(TreeSet::new));
 
             Issue existing = issueRepository.findFirstByConflictKey(entry.getKey()).orElse(null);
@@ -166,16 +167,4 @@ public class ConflictDetectionService {
         return fact.getWorkstream().getTransaction().getId() + "::" + fact.getFactKey() + "::" + period;
     }
 
-    private String normaliseValue(String value) {
-        if (value == null) {
-            return "";
-        }
-        String cleaned = value.trim().replaceAll("[,\\s]", "").toLowerCase(Locale.ROOT);
-        try {
-            // 51.0 and 51 are the same figure; only real disagreements should raise an issue.
-            return new java.math.BigDecimal(cleaned).stripTrailingZeros().toPlainString();
-        } catch (NumberFormatException e) {
-            return cleaned;
-        }
-    }
 }
