@@ -1577,3 +1577,13 @@ a.stat-tile:hover { border-color: #4a4a4a; }
   margin-right: 0.2rem;
   flex: none;
 }
+
+.conflict-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}

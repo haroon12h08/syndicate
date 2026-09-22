@@ -10,10 +10,12 @@ import * as readinessApi from '../api/readiness';
 import * as tasksApi from '../api/tasks';
 import * as drhpApi from '../api/drhp';
 import * as evidenceApi from '../api/evidence';
+import * as conflictsApi from '../api/conflicts';
 import ReadinessPanel from '../components/ReadinessPanel';
 import TaskBoard from '../components/TaskBoard';
 import DrhpPanel from '../components/DrhpPanel';
 import DocumentsPanel from '../components/DocumentsPanel';
+import ConflictsPanel from '../components/ConflictsPanel';
 import AuditTimeline from '../components/AuditTimeline';
 import ProvenanceDrawer from '../components/ProvenanceDrawer';
 import { TRANSACTION_ROLES, TRANSACTION_STATUSES, WORKSTREAM_TYPES, humanize } from '../constants';
@@ -23,6 +25,7 @@ const SIGNER_ROLES = ['ISSUER_ADMIN', 'LEAD_BANKER'];
 const TABS = [
   { key: 'overview', label: 'Overview' },
   { key: 'documents', label: 'Documents' },
+  { key: 'conflicts', label: 'Conflicts' },
   { key: 'tasks', label: 'Tasks' },
   { key: 'drhp', label: 'DRHP' },
   { key: 'team', label: 'Team' },
@@ -56,6 +59,7 @@ export default function TransactionDetailPage() {
   const [evidence, setEvidence] = useState([]);
   const [tab, setTab] = useState('overview');
   const [auditEvents, setAuditEvents] = useState([]);
+  const [conflicts, setConflicts] = useState([]);
   const [provenance, setProvenance] = useState(null);
   const [error, setError] = useState(null);
 
@@ -82,6 +86,7 @@ export default function TransactionDetailPage() {
       drhpApi.getLatestDrhp(id).then(setDrhpDocument).catch(() => setDrhpDocument(null));
       evidenceApi.listTransactionEvidence(id).then(setEvidence).catch(() => setEvidence([]));
       transactionsApi.listAudit(id).then(setAuditEvents).catch(() => setAuditEvents([]));
+      conflictsApi.listConflicts(id).then(setConflicts).catch(() => setConflicts([]));
       setTransaction(txn);
       setMemberships(members);
       setWorkstreams(ws);
@@ -160,6 +165,18 @@ export default function TransactionDetailPage() {
       setEvidence(await evidenceApi.listTransactionEvidence(id));
     } catch (err) {
       setError(err.message);
+    }
+  }
+
+  async function handleResolveConflict(conflictId, payload) {
+    setError(null);
+    try {
+      await conflictsApi.resolveConflict(conflictId, payload);
+      toast.success('Conflict resolved');
+      await load();
+    } catch (err) {
+      setError(err.message);
+      throw err;
     }
   }
 
@@ -401,6 +418,9 @@ export default function TransactionDetailPage() {
           >
             {t.label}
             {t.key === 'documents' && evidence.length > 0 && <span className="tab-count">{evidence.length}</span>}
+            {t.key === 'conflicts' && conflicts.some((c) => c.status === 'OPEN') && (
+              <span className="tab-count">{conflicts.filter((c) => c.status === 'OPEN').length}</span>
+            )}
             {t.key === 'tasks' && tasks.length > 0 && <span className="tab-count">{tasks.length}</span>}
           </button>
         ))}
@@ -499,6 +519,8 @@ export default function TransactionDetailPage() {
         onInspectProvenance={handleInspectProvenance}
       />
       )}
+
+      {tab === 'conflicts' && <ConflictsPanel conflicts={conflicts} onResolve={handleResolveConflict} />}
 
       {tab === 'audit' && <AuditTimeline events={auditEvents} />}
 
