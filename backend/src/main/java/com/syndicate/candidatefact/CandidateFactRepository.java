@@ -11,7 +11,9 @@ public interface CandidateFactRepository extends JpaRepository<CandidateFact, UU
 
     List<CandidateFact> findByWorkstreamIdAndStatus(UUID workstreamId, CandidateFactStatus status);
 
-    void deleteByEvidenceId(UUID evidenceId);
+    void deleteByEvidenceIdAndStatus(UUID evidenceId, CandidateFactStatus status);
+
+    List<CandidateFact> findByEvidenceIdAndStatus(UUID evidenceId, CandidateFactStatus status);
 
     /** The accepted extraction a fact came from, when it originated from a document. */
     Optional<CandidateFact> findByResultingFactId(UUID factId);

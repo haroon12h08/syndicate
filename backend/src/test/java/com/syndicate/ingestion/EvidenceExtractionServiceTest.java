@@ -57,12 +57,13 @@ class EvidenceExtractionServiceTest {
     }
 
     @Test
-    void deletesExistingCandidatesBeforeReprocessing() throws Exception {
+    void clearsPendingCandidatesBeforeReprocessing() throws Exception {
         when(evidence.getContentType()).thenReturn("text/plain");
 
         service.process(evidenceId);
 
-        verify(candidateFactRepository).deleteByEvidenceId(evidenceId);
+        verify(candidateFactRepository).deleteByEvidenceIdAndStatus(evidenceId,
+                com.syndicate.candidatefact.CandidateFactStatus.PENDING);
     }
 
     @Test

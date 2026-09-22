@@ -2,6 +2,7 @@ package com.syndicate.ingestion;
 
 import com.syndicate.candidatefact.CandidateFact;
 import com.syndicate.candidatefact.CandidateFactRepository;
+import com.syndicate.candidatefact.CandidateFactStatus;
 import com.syndicate.candidatefact.CandidateFactSource;
 import com.syndicate.common.ResourceNotFoundException;
 import com.syndicate.evidence.Evidence;
@@ -66,9 +67,10 @@ public class EvidenceExtractionService {
         Evidence evidence = evidenceRepository.findById(evidenceId)
                 .orElseThrow(() -> new ResourceNotFoundException("Evidence not found: " + evidenceId));
 
-        // idempotency: a redelivered message may be reprocessing after a partial
-        // previous attempt, so always start from a clean slate for this evidence
-        candidateFactRepository.deleteByEvidenceId(evidenceId);
+        // idempotency: a redelivered message may be reprocessing after a partial previous
+        // attempt, so clear this evidence's unreviewed candidates. Reviewed ones are kept: an
+        // accepted candidate is the fact's link back to its page region.
+        candidateFactRepository.deleteByEvidenceIdAndStatus(evidenceId, CandidateFactStatus.PENDING);
         evidence.setProcessingStatus(ProcessingStatus.PROCESSING);
         evidence.setProcessingError(null);
         publishStatus(evidence, 0);
