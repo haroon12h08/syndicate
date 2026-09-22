@@ -32,6 +32,7 @@ class EvidenceExtractionServiceTest {
     @Mock TesseractOcrRunner tesseractOcrRunner;
     @Mock CandidateFactMatcher candidateFactMatcher;
     @Mock PageImageCache pageImageCache;
+    @Mock org.springframework.context.ApplicationEventPublisher eventPublisher;
     @Mock Workstream workstream;
 
     EvidenceExtractionService service;
@@ -41,7 +42,7 @@ class EvidenceExtractionServiceTest {
     @BeforeEach
     void setUp() {
         service = new EvidenceExtractionService(evidenceRepository, candidateFactRepository, fileStorageService,
-                pdfLayoutParser, tesseractOcrRunner, candidateFactMatcher, pageImageCache);
+                pdfLayoutParser, tesseractOcrRunner, candidateFactMatcher, pageImageCache, eventPublisher);
         evidenceId = UUID.randomUUID();
         evidence = mock(Evidence.class);
         // getId()/getWorkstream() are only exercised by the success-path test that reaches
@@ -49,6 +50,9 @@ class EvidenceExtractionServiceTest {
         // "unnecessary stubbing" under Mockito's strict-stubs default.
         lenient().when(evidence.getId()).thenReturn(evidenceId);
         lenient().when(evidence.getWorkstream()).thenReturn(workstream);
+        com.syndicate.transaction.Transaction transaction = mock(com.syndicate.transaction.Transaction.class);
+        lenient().when(transaction.getId()).thenReturn(UUID.randomUUID());
+        lenient().when(workstream.getTransaction()).thenReturn(transaction);
         when(evidenceRepository.findById(evidenceId)).thenReturn(Optional.of(evidence));
     }
 

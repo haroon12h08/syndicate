@@ -30,6 +30,8 @@ class CandidateFactServiceTest {
     @Mock CandidateFactRepository candidateFactRepository;
     @Mock FactRepository factRepository;
     @Mock WorkstreamService workstreamService;
+    @Mock com.syndicate.audit.AuditService auditService;
+    @Mock com.syndicate.conflict.ConflictDetectionService conflictDetectionService;
     @Mock Workstream workstream;
     @Mock Evidence evidence;
     @Mock User caller;
@@ -40,9 +42,13 @@ class CandidateFactServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new CandidateFactService(candidateFactRepository, factRepository, workstreamService);
+        service = new CandidateFactService(candidateFactRepository, factRepository, workstreamService,
+                auditService, conflictDetectionService);
         when(workstream.getId()).thenReturn(workstreamId);
         when(caller.getId()).thenReturn(callerId);
+        com.syndicate.transaction.Transaction transaction = mock(com.syndicate.transaction.Transaction.class);
+        lenient().when(transaction.getId()).thenReturn(UUID.randomUUID());
+        lenient().when(workstream.getTransaction()).thenReturn(transaction);
     }
 
     private CandidateFact pendingCandidate() {
