@@ -11,11 +11,13 @@ import * as tasksApi from '../api/tasks';
 import * as drhpApi from '../api/drhp';
 import * as evidenceApi from '../api/evidence';
 import * as conflictsApi from '../api/conflicts';
+import * as workbenchApi from '../api/workbench';
 import ReadinessPanel from '../components/ReadinessPanel';
 import TaskBoard from '../components/TaskBoard';
 import DrhpPanel from '../components/DrhpPanel';
 import DocumentsPanel from '../components/DocumentsPanel';
 import ConflictsPanel from '../components/ConflictsPanel';
+import WorkbenchPanel from '../components/WorkbenchPanel';
 import AuditTimeline from '../components/AuditTimeline';
 import ProvenanceDrawer from '../components/ProvenanceDrawer';
 import { TRANSACTION_ROLES, TRANSACTION_STATUSES, WORKSTREAM_TYPES, humanize } from '../constants';
@@ -60,6 +62,7 @@ export default function TransactionDetailPage() {
   const [tab, setTab] = useState('overview');
   const [auditEvents, setAuditEvents] = useState([]);
   const [conflicts, setConflicts] = useState([]);
+  const [workbench, setWorkbench] = useState(null);
   const [provenance, setProvenance] = useState(null);
   const [error, setError] = useState(null);
 
@@ -87,6 +90,7 @@ export default function TransactionDetailPage() {
       evidenceApi.listTransactionEvidence(id).then(setEvidence).catch(() => setEvidence([]));
       transactionsApi.listAudit(id).then(setAuditEvents).catch(() => setAuditEvents([]));
       conflictsApi.listConflicts(id).then(setConflicts).catch(() => setConflicts([]));
+      workbenchApi.getWorkbench(id).then(setWorkbench).catch(() => setWorkbench(null));
       setTransaction(txn);
       setMemberships(members);
       setWorkstreams(ws);
@@ -472,6 +476,8 @@ export default function TransactionDetailPage() {
           </ol>
         </section>
       )}
+
+      {tab === 'overview' && <WorkbenchPanel workbench={workbench} onOpenTab={setTab} />}
 
       {tab === 'overview' && (
         <ReadinessPanel

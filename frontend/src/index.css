@@ -263,6 +263,7 @@ label {
 
 .checkbox-label {
   flex-direction: row;
+  justify-content: flex-start;
   align-items: center;
   gap: 0.5rem;
   font-weight: 400;
@@ -333,6 +334,7 @@ button.secondary:hover {
 }
 
 .link-button {
+  text-align: left;
   background: none;
   color: var(--text-muted);
   border: none;

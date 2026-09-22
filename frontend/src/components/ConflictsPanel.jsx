@@ -48,7 +48,7 @@ function ResolveForm({ conflict, onResolve }) {
         <fieldset>
           <legend>Evidence considered</legend>
           {sources.map((s) => (
-            <label key={s.evidenceId} className="checkbox">
+            <label key={s.evidenceId} className="checkbox-label">
               <input type="checkbox" checked={evidenceIds.includes(s.evidenceId)}
                 onChange={() => toggleEvidence(s.evidenceId)} />
               {s.fileName}
