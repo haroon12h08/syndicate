@@ -28,6 +28,10 @@ public class Fact extends BaseEntity {
     @JoinColumn(name = "workstream_id", nullable = false)
     private Workstream workstream;
 
+    @jakarta.persistence.Version
+    @Column(name = "row_version", nullable = false)
+    private long rowVersion;
+
     @Column(nullable = false)
     private String label;
 

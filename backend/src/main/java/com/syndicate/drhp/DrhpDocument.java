@@ -23,6 +23,10 @@ import java.util.Set;
 @Table(name = "drhp_documents")
 public class DrhpDocument extends BaseEntity {
 
+    @jakarta.persistence.Version
+    @Column(name = "row_version", nullable = false)
+    private long rowVersion;
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "transaction_id", nullable = false)
     private Transaction transaction;

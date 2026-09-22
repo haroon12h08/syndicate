@@ -48,6 +48,12 @@ public class GlobalExceptionHandler {
         return build(HttpStatus.BAD_REQUEST, message, req);
     }
 
+    @ExceptionHandler(org.springframework.orm.ObjectOptimisticLockingFailureException.class)
+    public ResponseEntity<ApiError> handleStaleWrite(Exception ex, HttpServletRequest req) {
+        return build(HttpStatus.CONFLICT, "STALE_WRITE",
+                "Someone else changed this record at the same time. Reload and try again.", req);
+    }
+
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ApiError> handleDataIntegrity(DataIntegrityViolationException ex, HttpServletRequest req) {
         return build(HttpStatus.CONFLICT, "This operation conflicts with existing data", req);
