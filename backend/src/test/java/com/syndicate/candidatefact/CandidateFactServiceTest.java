@@ -32,6 +32,7 @@ class CandidateFactServiceTest {
     @Mock WorkstreamService workstreamService;
     @Mock com.syndicate.audit.AuditService auditService;
     @Mock com.syndicate.conflict.ConflictDetectionService conflictDetectionService;
+    @Mock com.syndicate.fact.FactKeyResolver factKeyResolver;
     @Mock Workstream workstream;
     @Mock Evidence evidence;
     @Mock User caller;
@@ -43,7 +44,7 @@ class CandidateFactServiceTest {
     @BeforeEach
     void setUp() {
         service = new CandidateFactService(candidateFactRepository, factRepository, workstreamService,
-                auditService, conflictDetectionService);
+                auditService, conflictDetectionService, factKeyResolver);
         when(workstream.getId()).thenReturn(workstreamId);
         when(caller.getId()).thenReturn(callerId);
         com.syndicate.transaction.Transaction transaction = mock(com.syndicate.transaction.Transaction.class);

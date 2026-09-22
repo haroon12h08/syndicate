@@ -18,6 +18,7 @@ import jakarta.persistence.Table;
 import java.time.Instant;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.UUID;
 
 @Entity
 @Table(name = "facts")
@@ -29,6 +30,12 @@ public class Fact extends BaseEntity {
 
     @Column(nullable = false)
     private String label;
+
+    @Column(name = "fact_key", nullable = false, updatable = false)
+    private String factKey;
+
+    @Column(name = "lineage_id", nullable = false, updatable = false)
+    private UUID lineageId;
 
     @Column(nullable = false)
     private String value;
@@ -81,9 +88,11 @@ public class Fact extends BaseEntity {
     protected Fact() {
     }
 
-    public Fact(Workstream workstream, String label, String value, String unit, String period,
+    public Fact(Workstream workstream, String factKey, String label, String value, String unit, String period,
                 Fact supersedesFact, int version, User createdByUser, Instant validFrom, Instant validTo) {
         this.workstream = workstream;
+        this.factKey = factKey;
+        this.lineageId = supersedesFact != null ? supersedesFact.getLineageId() : UUID.randomUUID();
         this.label = label;
         this.value = value;
         this.unit = unit;
@@ -98,6 +107,14 @@ public class Fact extends BaseEntity {
 
     public Workstream getWorkstream() {
         return workstream;
+    }
+
+    public String getFactKey() {
+        return factKey;
+    }
+
+    public UUID getLineageId() {
+        return lineageId;
     }
 
     public String getLabel() {

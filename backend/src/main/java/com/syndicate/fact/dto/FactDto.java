@@ -11,6 +11,8 @@ import java.util.UUID;
 public record FactDto(
         UUID id,
         UUID workstreamId,
+        String factKey,
+        UUID lineageId,
         String label,
         String value,
         String unit,
@@ -31,6 +33,8 @@ public record FactDto(
         return new FactDto(
                 fact.getId(),
                 fact.getWorkstream().getId(),
+                fact.getFactKey(),
+                fact.getLineageId(),
                 fact.getLabel(),
                 fact.getValue(),
                 fact.getUnit(),

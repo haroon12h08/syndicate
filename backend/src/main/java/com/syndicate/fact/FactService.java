@@ -44,6 +44,7 @@ public class FactService {
     private final CandidateFactRepository candidateFactRepository;
     private final ConflictDetectionService conflictDetectionService;
     private final AuditService auditService;
+    private final FactKeyResolver factKeyResolver;
 
     public FactService(FactRepository factRepository, EvidenceRepository evidenceRepository,
                         WorkstreamService workstreamService, PermissionService permissionService,
@@ -51,7 +52,8 @@ public class FactService {
                         ChangePropagationService changePropagationService,
                         CandidateFactRepository candidateFactRepository,
                         ConflictDetectionService conflictDetectionService,
-                        AuditService auditService) {
+                        AuditService auditService,
+                        FactKeyResolver factKeyResolver) {
         this.factRepository = factRepository;
         this.evidenceRepository = evidenceRepository;
         this.workstreamService = workstreamService;
@@ -61,6 +63,7 @@ public class FactService {
         this.candidateFactRepository = candidateFactRepository;
         this.conflictDetectionService = conflictDetectionService;
         this.auditService = auditService;
+        this.factKeyResolver = factKeyResolver;
     }
 
     @Transactional
@@ -69,7 +72,8 @@ public class FactService {
         Workstream workstream = workstreamService.findWorkstream(workstreamId);
         Instant validFrom = request.validFrom() != null ? request.validFrom() : Instant.now();
         requireOrderedValidityWindow(validFrom, request.validTo());
-        Fact fact = new Fact(workstream, request.label(), request.value(), request.unit(), request.period(),
+        String factKey = factKeyResolver.resolve(request.factKey(), request.label());
+        Fact fact = new Fact(workstream, factKey, request.label(), request.value(), request.unit(), request.period(),
                 null, 1, caller, validFrom, request.validTo());
         Fact saved = factRepository.save(fact);
         UUID txId = workstream.getTransaction().getId();
@@ -184,8 +188,13 @@ public class FactService {
         Instant validFrom = request.validFrom() != null ? request.validFrom() : now;
         requireOrderedValidityWindow(validFrom, request.validTo());
 
+        // a correction changes the value of the same fact; a different key would be a different fact
+        if (request.factKey() != null && !request.factKey().equals(oldFact.getFactKey())) {
+            throw new BadRequestException("A correction cannot change the fact key (" + oldFact.getFactKey() + ")");
+        }
+
         oldFact.markSuperseded(now, validFrom);
-        Fact newFact = new Fact(oldFact.getWorkstream(), request.label(), request.value(), request.unit(),
+        Fact newFact = new Fact(oldFact.getWorkstream(), oldFact.getFactKey(), request.label(), request.value(), request.unit(),
                 request.period(), oldFact, oldFact.getVersion() + 1, caller, validFrom, request.validTo());
         Fact saved = factRepository.save(newFact);
         UUID supersededId = oldFact.getId();

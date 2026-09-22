@@ -9,6 +9,7 @@ import com.syndicate.audit.AuditAction;
 import com.syndicate.audit.AuditService;
 import com.syndicate.conflict.ConflictDetectionService;
 import com.syndicate.fact.Fact;
+import com.syndicate.fact.FactKeyResolver;
 import com.syndicate.fact.FactRepository;
 import com.syndicate.user.User;
 import com.syndicate.workstream.WorkstreamService;
@@ -31,11 +32,14 @@ public class CandidateFactService {
 
     private final AuditService auditService;
     private final ConflictDetectionService conflictDetectionService;
+    private final FactKeyResolver factKeyResolver;
 
     public CandidateFactService(CandidateFactRepository candidateFactRepository, FactRepository factRepository,
                                  WorkstreamService workstreamService,
                                  AuditService auditService,
-                                 ConflictDetectionService conflictDetectionService) {
+                                 ConflictDetectionService conflictDetectionService,
+                                 FactKeyResolver factKeyResolver) {
+        this.factKeyResolver = factKeyResolver;
         this.candidateFactRepository = candidateFactRepository;
         this.factRepository = factRepository;
         this.workstreamService = workstreamService;
@@ -67,7 +71,7 @@ public class CandidateFactService {
         String value = request.value() != null ? request.value() : candidate.getValue();
         String period = request.period() != null ? request.period() : candidate.getPeriod();
 
-        Fact fact = new Fact(candidate.getWorkstream(), label, value, request.unit(), period, null, 1, caller,
+        Fact fact = new Fact(candidate.getWorkstream(), factKeyResolver.resolve(null, label), label, value, request.unit(), period, null, 1, caller,
                 Instant.now(), null);
         fact.getEvidence().add(candidate.getEvidence());
         Fact savedFact = factRepository.save(fact);

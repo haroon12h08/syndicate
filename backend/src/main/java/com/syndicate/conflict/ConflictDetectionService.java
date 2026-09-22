@@ -157,11 +157,13 @@ public class ConflictDetectionService {
         return text.length() > 1000 ? text.substring(0, 997) + "..." : text;
     }
 
-    /** Facts collide only when they describe the same thing for the same period. */
+    /**
+     * Facts collide only when they share a semantic key and period. The subject is implicitly the
+     * issuer until subject entities exist (plan C1); labels are display text and play no part.
+     */
     private String conflictKey(Fact fact) {
-        String label = fact.getLabel().trim().toLowerCase(Locale.ROOT).replaceAll("\\s+", " ");
         String period = fact.getPeriod() == null ? "" : fact.getPeriod().trim().toLowerCase(Locale.ROOT);
-        return fact.getWorkstream().getTransaction().getId() + "::" + label + "::" + period;
+        return fact.getWorkstream().getTransaction().getId() + "::" + fact.getFactKey() + "::" + period;
     }
 
     private String normaliseValue(String value) {
