@@ -163,11 +163,12 @@ export default function TransactionDetailPage() {
     }
   }
 
-  async function handleDeleteEvidence(evidenceId, fileName) {
-    if (!window.confirm(`Delete "${fileName}"? This also removes its candidate facts.`)) return;
+  async function handleArchiveEvidence(evidenceId, fileName) {
+    const reason = window.prompt(`Why is "${fileName}" being withdrawn? It will be archived, not deleted.`);
+    if (reason === null) return;
     setError(null);
     try {
-      await evidenceApi.deleteEvidence(evidenceId);
+      await evidenceApi.archiveEvidence(evidenceId, reason);
       setEvidence(await evidenceApi.listTransactionEvidence(id));
     } catch (err) {
       setError(err.message);
@@ -465,7 +466,7 @@ export default function TransactionDetailPage() {
           evidence={evidence}
           workstreams={workstreams}
           onUpload={handleUploadEvidence}
-          onDelete={handleDeleteEvidence}
+          onDelete={handleArchiveEvidence}
           onReprocess={handleReprocessEvidence}
           onDownload={(evidenceId) => evidenceApi.downloadEvidence(evidenceId)}
           onCreateWorkstream={() => { setTab('overview'); setShowWsForm(true); }}

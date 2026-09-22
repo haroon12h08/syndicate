@@ -15,8 +15,10 @@ export function downloadEvidence(id) {
   return apiDownload(`/evidence/${id}/download`);
 }
 
-export function deleteEvidence(id) {
-  return apiDelete(`/evidence/${id}`);
+// Evidence is never destroyed; the server archives it and keeps the original (spec §53).
+export function archiveEvidence(id, reason) {
+  const query = reason ? `?reason=${encodeURIComponent(reason)}` : '';
+  return apiDelete(`/evidence/${id}${query}`);
 }
 
 export function reprocessEvidence(id) {

@@ -17,6 +17,7 @@ import jakarta.persistence.Table;
 import java.time.Instant;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.UUID;
 
 @Entity
 @Table(name = "evidence")
@@ -59,6 +60,39 @@ public class Evidence extends BaseEntity {
     @Column(name = "processing_error", columnDefinition = "TEXT")
     private String processingError;
 
+    @Column(name = "lineage_id", nullable = false, updatable = false)
+    private UUID lineageId;
+
+    @Column(nullable = false, updatable = false)
+    private int version;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "parent_evidence_id", updatable = false)
+    private Evidence parentEvidence;
+
+    @Column(name = "superseded_at")
+    private Instant supersededAt;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "retention_state", nullable = false)
+    private RetentionState retentionState = RetentionState.ACTIVE;
+
+    @Column(name = "archived_at")
+    private Instant archivedAt;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "archived_by_user_id")
+    private User archivedByUser;
+
+    @Column(name = "archive_reason")
+    private String archiveReason;
+
+    @Column(name = "access_classification", nullable = false)
+    private String accessClassification = "CONFIDENTIAL";
+
+    @Column(nullable = false)
+    private String source = "UPLOAD";
+
     @ManyToMany(mappedBy = "evidence", fetch = FetchType.LAZY)
     private Set<Fact> facts = new HashSet<>();
 
@@ -77,6 +111,66 @@ public class Evidence extends BaseEntity {
         this.uploadedAt = Instant.now();
         this.fileSha256 = fileSha256;
         this.processingStatus = ProcessingStatus.PENDING;
+        this.lineageId = UUID.randomUUID();
+        this.version = 1;
+    }
+
+    /** A corrected or replacement copy of {@code parent}; the parent is left untouched. */
+    public static Evidence newVersionOf(Evidence parent, String fileName, String storagePath, String contentType,
+                                        long fileSizeBytes, User uploadedByUser, String fileSha256) {
+        Evidence next = new Evidence(parent.getWorkstream(), fileName, storagePath, contentType, fileSizeBytes,
+                parent.getDocumentType(), uploadedByUser, fileSha256);
+        next.lineageId = parent.getLineageId();
+        next.version = parent.getVersion() + 1;
+        next.parentEvidence = parent;
+        return next;
+    }
+
+    public void markSuperseded(Instant at) {
+        this.supersededAt = at;
+    }
+
+    public void archive(User by, String reason, Instant at) {
+        this.retentionState = RetentionState.ARCHIVED;
+        this.archivedByUser = by;
+        this.archiveReason = reason;
+        this.archivedAt = at;
+    }
+
+    public UUID getLineageId() {
+        return lineageId;
+    }
+
+    public int getVersion() {
+        return version;
+    }
+
+    public Evidence getParentEvidence() {
+        return parentEvidence;
+    }
+
+    public Instant getSupersededAt() {
+        return supersededAt;
+    }
+
+    public RetentionState getRetentionState() {
+        return retentionState;
+    }
+
+    public Instant getArchivedAt() {
+        return archivedAt;
+    }
+
+    public String getArchiveReason() {
+        return archiveReason;
+    }
+
+    public String getAccessClassification() {
+        return accessClassification;
+    }
+
+    public String getSource() {
+        return source;
     }
 
     public Workstream getWorkstream() {

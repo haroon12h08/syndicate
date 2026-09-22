@@ -1,6 +1,7 @@
 package com.syndicate.evidence;
 
 import com.syndicate.evidence.dto.EvidenceDto;
+import com.syndicate.evidence.dto.EvidenceIntegrityDto;
 import com.syndicate.user.User;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
@@ -57,17 +58,36 @@ public class EvidenceController {
     @GetMapping("/api/evidence/{id}/download")
     public ResponseEntity<Resource> download(@PathVariable UUID id, @AuthenticationPrincipal User currentUser) {
         EvidenceDto meta = evidenceService.get(id, currentUser.getId());
-        Resource resource = evidenceService.download(id, currentUser.getId());
+        Resource resource = evidenceService.download(id, currentUser);
         return ResponseEntity.ok()
                 .contentType(MediaType.parseMediaType(meta.contentType()))
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + meta.fileName() + "\"")
                 .body(resource);
     }
 
+    /** Archives rather than deletes: evidence is preserved for the life of the transaction record. */
     @DeleteMapping("/api/evidence/{id}")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void delete(@PathVariable UUID id, @AuthenticationPrincipal User currentUser) {
-        evidenceService.delete(id, currentUser.getId());
+    public EvidenceDto archive(@PathVariable UUID id, @RequestParam(value = "reason", required = false) String reason,
+                               @AuthenticationPrincipal User currentUser) {
+        return evidenceService.archive(id, reason, currentUser);
+    }
+
+    @PostMapping(value = "/api/evidence/{id}/versions", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @ResponseStatus(HttpStatus.CREATED)
+    public EvidenceDto uploadNewVersion(@PathVariable UUID id, @RequestParam("file") MultipartFile file,
+                                        @RequestParam(value = "reason", required = false) String reason,
+                                        @AuthenticationPrincipal User currentUser) {
+        return evidenceService.uploadNewVersion(id, file, reason, currentUser);
+    }
+
+    @GetMapping("/api/evidence/{id}/versions")
+    public List<EvidenceDto> history(@PathVariable UUID id, @AuthenticationPrincipal User currentUser) {
+        return evidenceService.history(id, currentUser.getId());
+    }
+
+    @GetMapping("/api/evidence/{id}/integrity")
+    public EvidenceIntegrityDto integrity(@PathVariable UUID id, @AuthenticationPrincipal User currentUser) {
+        return evidenceService.checkIntegrity(id, currentUser.getId());
     }
 
     @PostMapping("/api/evidence/{id}/reprocess")

@@ -236,10 +236,12 @@ export default function WorkstreamDetailPage() {
     }
   }
 
-  async function handleDeleteEvidence(evidenceId) {
+  async function handleArchiveEvidence(evidenceId) {
+    const reason = window.prompt('Why is this document being withdrawn? It will be archived, not deleted.');
+    if (reason === null) return;
     setError(null);
     try {
-      await evidenceApi.deleteEvidence(evidenceId);
+      await evidenceApi.archiveEvidence(evidenceId, reason);
       await load();
     } catch (err) {
       setError(err.message);
@@ -488,7 +490,7 @@ export default function WorkstreamDetailPage() {
                 {e.processingStatus === 'FAILED' && (
                   <button onClick={() => handleReprocessEvidence(e.id)}>Retry</button>
                 )}
-                <button className="secondary" onClick={() => handleDeleteEvidence(e.id)}>Delete</button>
+                <button className="secondary" onClick={() => handleArchiveEvidence(e.id)}>Archive</button>
               </td>
             </tr>
           ))}

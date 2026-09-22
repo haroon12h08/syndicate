@@ -8,9 +8,10 @@ import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 import java.net.MalformedURLException;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.UUID;
+import java.nio.file.StandardCopyOption;
 
 @Service
 public class FileStorageService {
@@ -26,23 +27,35 @@ public class FileStorageService {
         }
     }
 
-    public String store(byte[] content, String originalFilename) {
+    /**
+     * Stores the bytes under their SHA-256 ({@code sha256/ab/<hash>}). Content-addressed paths are
+     * write-once: identical bytes resolve to the same file and an existing file is never rewritten.
+     */
+    public String store(byte[] content, String sha256) {
         if (content.length == 0) {
             throw new BadRequestException("Uploaded file is empty");
         }
-        String originalName = Path.of(originalFilename == null ? "file" : originalFilename)
-                .getFileName().toString();
-        String storedName = UUID.randomUUID() + "-" + originalName;
-        Path target = uploadRoot.resolve(storedName).normalize();
-        if (!target.startsWith(uploadRoot)) {
-            throw new BadRequestException("Invalid file name");
+        if (!sha256.matches("[0-9a-f]{64}")) {
+            throw new IllegalArgumentException("Not a SHA-256 hex digest");
         }
+        String relative = "sha256/" + sha256.substring(0, 2) + "/" + sha256;
+        Path target = uploadRoot.resolve(relative).normalize();
         try {
-            Files.write(target, content);
+            if (Files.exists(target)) {
+                return relative;
+            }
+            Files.createDirectories(target.getParent());
+            Path temp = Files.createTempFile(target.getParent(), "upload-", ".tmp");
+            Files.write(temp, content);
+            try {
+                Files.move(temp, target, StandardCopyOption.ATOMIC_MOVE);
+            } catch (FileAlreadyExistsException raced) {
+                Files.deleteIfExists(temp);
+            }
         } catch (IOException e) {
             throw new IllegalStateException("Failed to store file", e);
         }
-        return storedName;
+        return relative;
     }
 
     public byte[] readBytes(String storagePath) {
@@ -70,17 +83,6 @@ public class FileStorageService {
             return resource;
         } catch (MalformedURLException e) {
             throw new BadRequestException("Invalid storage path");
-        }
-    }
-
-    public void delete(String storagePath) {
-        try {
-            Path file = uploadRoot.resolve(storagePath).normalize();
-            if (file.startsWith(uploadRoot)) {
-                Files.deleteIfExists(file);
-            }
-        } catch (IOException ignored) {
-            // best-effort cleanup for a prototype
         }
     }
 }

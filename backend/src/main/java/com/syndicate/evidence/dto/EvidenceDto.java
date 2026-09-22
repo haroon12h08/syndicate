@@ -3,6 +3,7 @@ package com.syndicate.evidence.dto;
 import com.syndicate.evidence.Evidence;
 import com.syndicate.evidence.EvidenceDocumentType;
 import com.syndicate.evidence.ProcessingStatus;
+import com.syndicate.evidence.RetentionState;
 import com.syndicate.user.UserDto;
 
 import java.time.Instant;
@@ -19,7 +20,15 @@ public record EvidenceDto(
         Instant uploadedAt,
         String fileSha256,
         ProcessingStatus processingStatus,
-        String processingError
+        String processingError,
+        UUID lineageId,
+        int version,
+        UUID parentEvidenceId,
+        Instant supersededAt,
+        RetentionState retentionState,
+        Instant archivedAt,
+        String archiveReason,
+        String accessClassification
 ) {
     public static EvidenceDto from(Evidence evidence) {
         return new EvidenceDto(
@@ -33,7 +42,15 @@ public record EvidenceDto(
                 evidence.getUploadedAt(),
                 evidence.getFileSha256(),
                 evidence.getProcessingStatus(),
-                evidence.getProcessingError()
+                evidence.getProcessingError(),
+                evidence.getLineageId(),
+                evidence.getVersion(),
+                evidence.getParentEvidence() != null ? evidence.getParentEvidence().getId() : null,
+                evidence.getSupersededAt(),
+                evidence.getRetentionState(),
+                evidence.getArchivedAt(),
+                evidence.getArchiveReason(),
+                evidence.getAccessClassification()
         );
     }
 }

@@ -73,6 +73,9 @@ public class TransactionDeletionService {
                 "DELETE FROM facts WHERE workstream_id IN "
                         + "(SELECT id FROM workstreams WHERE transaction_id = :id)",
 
+                // Same for the evidence version chain
+                "UPDATE evidence SET parent_evidence_id = NULL WHERE workstream_id IN "
+                        + "(SELECT id FROM workstreams WHERE transaction_id = :id)",
                 "DELETE FROM evidence WHERE workstream_id IN "
                         + "(SELECT id FROM workstreams WHERE transaction_id = :id)",
                 "DELETE FROM workstreams WHERE transaction_id = :id",

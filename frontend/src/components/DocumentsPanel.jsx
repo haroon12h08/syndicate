@@ -135,7 +135,7 @@ export default function DocumentsPanel({
               <td className="row-actions">
                 <button className="secondary" onClick={() => onDownload(e.id)}>Download</button>
                 <button className="secondary" onClick={() => onReprocess(e.id)}>Reprocess</button>
-                <button className="danger" onClick={() => onDelete(e.id, e.fileName)}>Delete</button>
+                <button className="secondary" onClick={() => onDelete(e.id, e.fileName)}>Archive</button>
               </td>
             </tr>
           ))}

@@ -30,6 +30,11 @@ public class GlobalExceptionHandler {
         return build(HttpStatus.BAD_REQUEST, ex.getMessage(), req);
     }
 
+    @ExceptionHandler(ConflictException.class)
+    public ResponseEntity<ApiError> handleConflict(ConflictException ex, HttpServletRequest req) {
+        return build(HttpStatus.CONFLICT, ex.getCode(), ex.getMessage(), req);
+    }
+
     @ExceptionHandler(BadCredentialsException.class)
     public ResponseEntity<ApiError> handleBadCredentials(BadCredentialsException ex, HttpServletRequest req) {
         return build(HttpStatus.UNAUTHORIZED, "Invalid email or password", req);
@@ -54,7 +59,12 @@ public class GlobalExceptionHandler {
     }
 
     private ResponseEntity<ApiError> build(HttpStatus status, String message, HttpServletRequest req) {
-        ApiError error = new ApiError(Instant.now(), status.value(), status.getReasonPhrase(), message, req.getRequestURI());
+        return build(status, null, message, req);
+    }
+
+    private ResponseEntity<ApiError> build(HttpStatus status, String code, String message, HttpServletRequest req) {
+        ApiError error = new ApiError(Instant.now(), status.value(), status.getReasonPhrase(), code, message,
+                req.getRequestURI());
         return ResponseEntity.status(status).body(error);
     }
 }
