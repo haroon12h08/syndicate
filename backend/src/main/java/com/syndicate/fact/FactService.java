@@ -199,14 +199,13 @@ public class FactService {
         Fact newFact = new Fact(oldFact.getWorkstream(), oldFact.getFactKey(), request.label(), request.value(), request.unit(),
                 request.period(), oldFact, oldFact.getVersion() + 1, caller, validFrom, request.validTo());
         Fact saved = factRepository.save(newFact);
-        UUID supersededId = oldFact.getId();
         String oldValue = oldFact.getValue();
         String supersededLabel = oldFact.getLabel();
         UUID txId = transactionId(oldFact);
         auditService.record(txId, caller, AuditAction.FACT_SUPERSEDED, "Fact", saved.getId(),
                 "Corrected " + supersededLabel, oldValue, saved.getValue(), request.reason());
+        changePropagationService.propagateFactSuperseded(txId, saved.getLineageId(), supersededLabel);
         scheduleAfterCommit(() -> {
-            changePropagationService.propagateFactSuperseded(supersededId, supersededLabel);
             readinessService.reevaluateQuietly(txId, caller);
             conflictDetectionService.detectQuietly(txId, caller);
         });
