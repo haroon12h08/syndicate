@@ -1,8 +1,10 @@
 package com.syndicate.fact;
 
 import com.syndicate.common.BadRequestException;
+import com.syndicate.common.ConflictException;
 import com.syndicate.common.ResourceNotFoundException;
 import com.syndicate.evidence.Evidence;
+import com.syndicate.evidence.EvidenceQuality;
 import com.syndicate.evidence.EvidenceRepository;
 import com.syndicate.candidatefact.CandidateFact;
 import com.syndicate.candidatefact.CandidateFactRepository;
@@ -220,6 +222,12 @@ public class FactService {
             UUID transactionId = workstream.getTransaction().getId();
             permissionService.requireTransactionPermission(transactionId, caller.getId(),
                     Permission.FACT_VERIFY_FINANCIAL);
+        }
+        boolean onlyUnsupportiveEvidence = !fact.getEvidence().isEmpty() && fact.getEvidence().stream()
+                .allMatch(e -> EvidenceQuality.UNSUPPORTIVE.contains(e.getQuality()));
+        if (onlyUnsupportiveEvidence) {
+            throw new ConflictException("EVIDENCE_INSUFFICIENT",
+                    "Every document supporting this fact has been assessed as insufficient or invalid");
         }
         fact.markVerified(caller, Instant.now());
         UUID txId = workstream.getTransaction().getId();

@@ -108,6 +108,27 @@ public class EvidenceService {
         return EvidenceDto.from(saved);
     }
 
+    @Transactional
+    public EvidenceDto assessQuality(UUID evidenceId, EvidenceQuality quality, String reason, User caller) {
+        Evidence evidence = findEvidence(evidenceId);
+        workstreamService.requireAccess(evidence.getWorkstream().getId(), caller.getId());
+        if (!EvidenceQuality.REVIEWER_ASSIGNABLE.contains(quality)) {
+            throw new BadRequestException("Quality " + quality + " cannot be assigned by a reviewer");
+        }
+        if (evidence.getSupersededAt() != null) {
+            throw new ConflictException("EVIDENCE_NOT_LATEST", "Assess the current version of this document");
+        }
+        if (quality != EvidenceQuality.ACCEPTABLE && (reason == null || reason.isBlank())) {
+            throw new BadRequestException("A reason is required when evidence is not acceptable");
+        }
+        EvidenceQuality previous = evidence.getQuality();
+        evidence.assessQuality(quality, reason, caller, Instant.now());
+        auditService.record(evidence.getWorkstream().getTransaction().getId(), caller,
+                AuditAction.EVIDENCE_QUALITY_ASSESSED, "Evidence", evidence.getId(),
+                "Assessed " + evidence.getFileName() + " as " + quality, previous.name(), quality.name(), reason);
+        return EvidenceDto.from(evidence);
+    }
+
     public List<EvidenceDto> history(UUID evidenceId, UUID callerId) {
         Evidence evidence = findEvidence(evidenceId);
         workstreamService.requireAccess(evidence.getWorkstream().getId(), callerId);

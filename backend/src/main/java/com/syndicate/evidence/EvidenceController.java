@@ -3,6 +3,7 @@ package com.syndicate.evidence;
 import com.syndicate.evidence.dto.EvidenceDto;
 import com.syndicate.evidence.dto.EvidenceIntegrityDto;
 import com.syndicate.user.User;
+import jakarta.validation.Valid;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -13,6 +14,8 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
@@ -78,6 +81,15 @@ public class EvidenceController {
                                         @RequestParam(value = "reason", required = false) String reason,
                                         @AuthenticationPrincipal User currentUser) {
         return evidenceService.uploadNewVersion(id, file, reason, currentUser);
+    }
+
+    public record AssessQualityRequest(@jakarta.validation.constraints.NotNull EvidenceQuality quality, String reason) {
+    }
+
+    @PutMapping("/api/evidence/{id}/quality")
+    public EvidenceDto assessQuality(@PathVariable UUID id, @Valid @RequestBody AssessQualityRequest request,
+                                     @AuthenticationPrincipal User currentUser) {
+        return evidenceService.assessQuality(id, request.quality(), request.reason(), currentUser);
     }
 
     @GetMapping("/api/evidence/{id}/versions")

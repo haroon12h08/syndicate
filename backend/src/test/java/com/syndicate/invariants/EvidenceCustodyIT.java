@@ -130,4 +130,31 @@ class EvidenceCustodyIT extends IntegrationTestBase {
             }
         };
     }
+
+    @Test
+    void factSupportedOnlyByInsufficientEvidenceCannotBeVerified() {
+        UUID evidenceId = upload("illegible scan " + UUID.randomUUID());
+        UUID factId = api.create(tx.lead(), "/api/workstreams/" + tx.workstreamId() + "/facts",
+                Map.of("label", "Revenue", "value", "42.18", "period", "FY2026"));
+        api.call(tx.lead(), HttpMethod.POST, "/api/facts/" + factId + "/evidence-links", Map.of("evidenceId", evidenceId));
+        var assessed = api.call(tx.lead(), HttpMethod.PUT, "/api/evidence/" + evidenceId + "/quality",
+                Map.of("quality", "INSUFFICIENT", "reason", "illegible"));
+        assertThat(assessed.getBody().get("quality")).isEqualTo("INSUFFICIENT");
+
+        // lead is LEAD_BANKER; seat an auditor who may verify financial facts
+        var auditor = tx.addMember(api, "AUDITOR");
+        var res = api.call(auditor, HttpMethod.POST, "/api/facts/" + factId + "/verify", null);
+
+        assertThat(res.getStatusCode().value()).isEqualTo(409);
+        assertThat(res.getBody().get("code")).isEqualTo("EVIDENCE_INSUFFICIENT");
+    }
+
+    @Test
+    void notAcceptableQualityRequiresAReasonAndSupersededIsSystemOnly() {
+        UUID evidenceId = upload("doc " + UUID.randomUUID());
+        assertThat(api.call(tx.lead(), HttpMethod.PUT, "/api/evidence/" + evidenceId + "/quality",
+                Map.of("quality", "INVALID")).getStatusCode().value()).isEqualTo(400);
+        assertThat(api.call(tx.lead(), HttpMethod.PUT, "/api/evidence/" + evidenceId + "/quality",
+                Map.of("quality", "SUPERSEDED", "reason", "x")).getStatusCode().value()).isEqualTo(400);
+    }
 }

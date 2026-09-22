@@ -87,6 +87,20 @@ public class Evidence extends BaseEntity {
     @Column(name = "archive_reason")
     private String archiveReason;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private EvidenceQuality quality = EvidenceQuality.UNREVIEWED;
+
+    @Column(name = "quality_reason")
+    private String qualityReason;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "quality_reviewed_by_user_id")
+    private User qualityReviewedByUser;
+
+    @Column(name = "quality_reviewed_at")
+    private Instant qualityReviewedAt;
+
     @Column(name = "access_classification", nullable = false)
     private String accessClassification = "CONFIDENTIAL";
 
@@ -128,6 +142,30 @@ public class Evidence extends BaseEntity {
 
     public void markSuperseded(Instant at) {
         this.supersededAt = at;
+        this.quality = EvidenceQuality.SUPERSEDED;
+    }
+
+    public void assessQuality(EvidenceQuality quality, String reason, User reviewer, Instant at) {
+        this.quality = quality;
+        this.qualityReason = reason;
+        this.qualityReviewedByUser = reviewer;
+        this.qualityReviewedAt = at;
+    }
+
+    public EvidenceQuality getQuality() {
+        return quality;
+    }
+
+    public String getQualityReason() {
+        return qualityReason;
+    }
+
+    public User getQualityReviewedByUser() {
+        return qualityReviewedByUser;
+    }
+
+    public Instant getQualityReviewedAt() {
+        return qualityReviewedAt;
     }
 
     public void archive(User by, String reason, Instant at) {

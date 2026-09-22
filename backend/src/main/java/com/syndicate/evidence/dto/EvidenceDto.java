@@ -2,6 +2,7 @@ package com.syndicate.evidence.dto;
 
 import com.syndicate.evidence.Evidence;
 import com.syndicate.evidence.EvidenceDocumentType;
+import com.syndicate.evidence.EvidenceQuality;
 import com.syndicate.evidence.ProcessingStatus;
 import com.syndicate.evidence.RetentionState;
 import com.syndicate.user.UserDto;
@@ -28,7 +29,11 @@ public record EvidenceDto(
         RetentionState retentionState,
         Instant archivedAt,
         String archiveReason,
-        String accessClassification
+        String accessClassification,
+        EvidenceQuality quality,
+        String qualityReason,
+        UserDto qualityReviewedBy,
+        Instant qualityReviewedAt
 ) {
     public static EvidenceDto from(Evidence evidence) {
         return new EvidenceDto(
@@ -50,7 +55,11 @@ public record EvidenceDto(
                 evidence.getRetentionState(),
                 evidence.getArchivedAt(),
                 evidence.getArchiveReason(),
-                evidence.getAccessClassification()
+                evidence.getAccessClassification(),
+                evidence.getQuality(),
+                evidence.getQualityReason(),
+                evidence.getQualityReviewedByUser() != null ? UserDto.from(evidence.getQualityReviewedByUser()) : null,
+                evidence.getQualityReviewedAt()
         );
     }
 }
