@@ -1,7 +1,6 @@
 package com.syndicate.fact;
 
 import com.syndicate.common.BadRequestException;
-import com.syndicate.common.ForbiddenException;
 import com.syndicate.common.ResourceNotFoundException;
 import com.syndicate.evidence.Evidence;
 import com.syndicate.evidence.EvidenceRepository;
@@ -11,13 +10,13 @@ import com.syndicate.fact.dto.CreateFactRequest;
 import com.syndicate.fact.dto.FactDto;
 import com.syndicate.fact.dto.FactTraceDto;
 import com.syndicate.fact.dto.UpdateFactRequest;
+import com.syndicate.permission.Permission;
 import com.syndicate.permission.PermissionService;
 import com.syndicate.audit.AuditAction;
 import com.syndicate.audit.AuditService;
 import com.syndicate.conflict.ConflictDetectionService;
 import com.syndicate.drhp.ChangePropagationService;
 import com.syndicate.regulatory.ReadinessService;
-import com.syndicate.transaction.TransactionRole;
 import com.syndicate.user.User;
 import com.syndicate.workstream.Workstream;
 import com.syndicate.workstream.WorkstreamService;
@@ -210,11 +209,8 @@ public class FactService {
         workstreamService.requireAccess(workstream.getId(), caller.getId());
         if (workstream.getType() == WorkstreamType.FINANCIAL_DUE_DILIGENCE) {
             UUID transactionId = workstream.getTransaction().getId();
-            TransactionRole role = permissionService.requireTransactionMembershipRole(transactionId, caller.getId());
-            if (role != TransactionRole.AUDITOR && role != TransactionRole.ISSUER_ADMIN) {
-                throw new ForbiddenException(
-                        "Only an Auditor or the Issuer Admin can verify facts in Financial Due Diligence");
-            }
+            permissionService.requireTransactionPermission(transactionId, caller.getId(),
+                    Permission.FACT_VERIFY_FINANCIAL);
         }
         fact.markVerified(caller, Instant.now());
         UUID txId = workstream.getTransaction().getId();
