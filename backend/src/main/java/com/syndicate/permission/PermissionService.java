@@ -32,8 +32,10 @@ public class PermissionService {
                 Permission.TRANSACTION_STATUS_TRANSITION, Permission.FACT_VERIFY_FINANCIAL));
         TRANSACTION_ROLE_PERMISSIONS.put(TransactionRole.LEAD_BANKER, EnumSet.of(
                 Permission.TRANSACTION_MEMBERSHIP_MANAGE, Permission.TRANSACTION_INVITATION_SEND,
-                Permission.TRANSACTION_STATUS_TRANSITION));
-        TRANSACTION_ROLE_PERMISSIONS.put(TransactionRole.AUDITOR, EnumSet.of(Permission.FACT_VERIFY_FINANCIAL));
+                Permission.TRANSACTION_STATUS_TRANSITION, Permission.CONFLICT_RESOLVE));
+        TRANSACTION_ROLE_PERMISSIONS.put(TransactionRole.DUE_DILIGENCE_TEAM, EnumSet.of(Permission.CONFLICT_RESOLVE));
+        TRANSACTION_ROLE_PERMISSIONS.put(TransactionRole.AUDITOR, EnumSet.of(
+                Permission.FACT_VERIFY_FINANCIAL, Permission.CONFLICT_RESOLVE));
         TRANSACTION_ROLE_PERMISSIONS.put(TransactionRole.LEAD_LAWYER, EnumSet.of(Permission.ISSUE_RESOLVE_LITIGATION));
         TRANSACTION_ROLE_PERMISSIONS.put(TransactionRole.LEGAL_ASSOCIATE, EnumSet.of(Permission.ISSUE_RESOLVE_LITIGATION));
     }

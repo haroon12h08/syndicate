@@ -1,5 +1,6 @@
 package com.syndicate.issue;
 
+import com.syndicate.common.ConflictException;
 import com.syndicate.common.ForbiddenException;
 import com.syndicate.common.ResourceNotFoundException;
 import com.syndicate.evidence.Evidence;
@@ -78,6 +79,13 @@ public class IssueService {
         Workstream workstream = issue.getWorkstream();
         workstreamService.requireAccess(workstream.getId(), callerId);
 
+        boolean closing = (request.status() == IssueStatus.RESOLVED || request.status() == IssueStatus.CLOSED)
+                && request.status() != issue.getStatus();
+        if (closing && issue.getConflictKey() != null) {
+            // a conflict is closed by choosing a value, not by ticking its issue (spec §11)
+            throw new ConflictException("CONFLICT_RESOLUTION_REQUIRED",
+                    "Resolve this through the conflict: choose the value that stands and record why");
+        }
         boolean resolving = request.status() == IssueStatus.RESOLVED && issue.getStatus() != IssueStatus.RESOLVED;
         if (resolving && workstream.getType() == WorkstreamType.LITIGATION) {
             UUID transactionId = workstream.getTransaction().getId();

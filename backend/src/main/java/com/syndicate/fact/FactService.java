@@ -17,6 +17,8 @@ import com.syndicate.permission.PermissionService;
 import com.syndicate.audit.AuditAction;
 import com.syndicate.audit.AuditService;
 import com.syndicate.conflict.ConflictDetectionService;
+import com.syndicate.conflict.ConflictStatus;
+import com.syndicate.conflict.FactConflictRepository;
 import com.syndicate.drhp.ChangePropagationService;
 import com.syndicate.regulatory.ReadinessService;
 import com.syndicate.user.User;
@@ -47,6 +49,7 @@ public class FactService {
     private final ConflictDetectionService conflictDetectionService;
     private final AuditService auditService;
     private final FactKeyResolver factKeyResolver;
+    private final FactConflictRepository conflictRepository;
 
     public FactService(FactRepository factRepository, EvidenceRepository evidenceRepository,
                         WorkstreamService workstreamService, PermissionService permissionService,
@@ -55,7 +58,8 @@ public class FactService {
                         CandidateFactRepository candidateFactRepository,
                         ConflictDetectionService conflictDetectionService,
                         AuditService auditService,
-                        FactKeyResolver factKeyResolver) {
+                        FactKeyResolver factKeyResolver,
+                        FactConflictRepository conflictRepository) {
         this.factRepository = factRepository;
         this.evidenceRepository = evidenceRepository;
         this.workstreamService = workstreamService;
@@ -66,6 +70,7 @@ public class FactService {
         this.conflictDetectionService = conflictDetectionService;
         this.auditService = auditService;
         this.factKeyResolver = factKeyResolver;
+        this.conflictRepository = conflictRepository;
     }
 
     @Transactional
@@ -82,7 +87,7 @@ public class FactService {
         UUID txId = workstream.getTransaction().getId();
         auditService.record(txId, caller, AuditAction.FACT_CREATED, "Fact", saved.getId(),
                 "Recorded " + saved.getLabel() + " = " + saved.getValue(), null, saved.getValue(), null);
-        scheduleAfterCommit(() -> conflictDetectionService.detectQuietly(txId, caller));
+        conflictDetectionService.detect(txId, caller);
         return FactDto.from(saved);
     }
 
@@ -207,10 +212,8 @@ public class FactService {
         auditService.record(txId, caller, AuditAction.FACT_SUPERSEDED, "Fact", saved.getId(),
                 "Corrected " + supersededLabel, oldValue, saved.getValue(), request.reason());
         changePropagationService.propagateFactSuperseded(txId, saved.getLineageId(), supersededLabel);
-        scheduleAfterCommit(() -> {
-            readinessService.reevaluateQuietly(txId, caller);
-            conflictDetectionService.detectQuietly(txId, caller);
-        });
+        conflictDetectionService.detect(txId, caller);
+        scheduleAfterCommit(() -> readinessService.reevaluateQuietly(txId, caller));
         return FactDto.from(saved);
     }
 
@@ -234,6 +237,10 @@ public class FactService {
             throw new ConflictException("FOUR_EYES_REQUIRED", "This is a " + fact.getMateriality()
                     + " fact: it must be verified by someone other than the person who recorded it");
         }
+        if (!conflictRepository.findByMemberAndStatus(fact.getId(), ConflictStatus.OPEN).isEmpty()) {
+            throw new ConflictException("CONFLICT_OPEN",
+                    "This value is in an open conflict with another source. Resolve the conflict first.");
+        }
         boolean onlyUnsupportiveEvidence = !fact.getEvidence().isEmpty() && fact.getEvidence().stream()
                 .allMatch(e -> EvidenceQuality.UNSUPPORTIVE.contains(e.getQuality()));
         if (onlyUnsupportiveEvidence) {
@@ -244,10 +251,7 @@ public class FactService {
         UUID txId = workstream.getTransaction().getId();
         auditService.record(txId, caller, AuditAction.FACT_VERIFIED, "Fact", fact.getId(),
                 "Verified " + fact.getLabel() + " = " + fact.getValue());
-        scheduleAfterCommit(() -> {
-            readinessService.reevaluateQuietly(txId, caller);
-            conflictDetectionService.detectQuietly(txId, caller);
-        });
+        scheduleAfterCommit(() -> readinessService.reevaluateQuietly(txId, caller));
         return FactDto.from(fact);
     }
 

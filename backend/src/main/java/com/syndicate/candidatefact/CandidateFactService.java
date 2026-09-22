@@ -16,8 +16,6 @@ import com.syndicate.user.User;
 import com.syndicate.workstream.WorkstreamService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.Instant;
 import java.util.List;
@@ -87,17 +85,7 @@ public class CandidateFactService {
                         + candidate.getEvidence().getFileName(),
                 null, value, request.reviewNote());
 
-        UUID txId = candidate.getWorkstream().getTransaction().getId();
-        if (TransactionSynchronizationManager.isSynchronizationActive()) {
-            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-                @Override
-                public void afterCommit() {
-                    conflictDetectionService.detectQuietly(txId, caller);
-                }
-            });
-        } else {
-            conflictDetectionService.detectQuietly(txId, caller);
-        }
+        conflictDetectionService.detect(candidate.getWorkstream().getTransaction().getId(), caller);
         return CandidateFactDto.from(candidate);
     }
 

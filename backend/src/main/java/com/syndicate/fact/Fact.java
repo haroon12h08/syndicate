@@ -189,6 +189,11 @@ public class Fact extends BaseEntity {
         return verifiedAt;
     }
 
+    /** Set aside by a conflict resolution. The row stays for history; it is no longer current. */
+    public void markRejected() {
+        this.status = FactStatus.REJECTED;
+    }
+
     public void markVerified(User verifier, Instant at) {
         this.status = FactStatus.VERIFIED;
         this.verifiedByUser = verifier;

@@ -42,6 +42,12 @@ public class ChangePropagationService {
     /** @return the dependents that were found downstream of the fact */
     @Transactional(propagation = Propagation.MANDATORY)
     public List<ImpactedNode> propagateFactSuperseded(UUID transactionId, UUID factLineageId, String factLabel) {
+        return propagateFactChange(transactionId, factLineageId, "Source fact \"" + factLabel + "\" was superseded.");
+    }
+
+    /** Marks every current dependent of the fact lineage stale, recording {@code reason}. */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public List<ImpactedNode> propagateFactChange(UUID transactionId, UUID factLineageId, String reason) {
         // the graph is read with SQL, so pending JPA changes (the new version) must be visible first
         entityManager.flush();
         List<ImpactedNode> impacted = graph.impactOf(transactionId, new GraphNode(GraphNodeType.FACT, factLineageId));
@@ -49,19 +55,17 @@ public class ChangePropagationService {
         int documents = 0;
         for (ImpactedNode node : impacted) {
             if (node.type() == GraphNodeType.DISCLOSURE) {
-                disclosureRepository.findById(node.id()).ifPresent(d ->
-                        d.markStale("Source fact \"" + factLabel + "\" was superseded."));
+                disclosureRepository.findById(node.id()).ifPresent(d -> d.markStale(reason));
                 disclosures++;
             } else if (node.type() == GraphNodeType.DOCUMENT) {
                 drhpRepository.findById(node.id())
                         .filter(doc -> doc.getStatus() == DrhpStatus.COMPILED)
-                        .ifPresent(doc -> doc.invalidate(
-                                "Cited fact \"" + factLabel + "\" was superseded after compilation."));
+                        .ifPresent(doc -> doc.invalidate(reason + " (after compilation)"));
                 documents++;
             }
         }
         if (!impacted.isEmpty()) {
-            log.info("Fact lineage {} superseded: {} disclosure(s) stale, {} DRHP document(s) invalidated",
+            log.info("Fact lineage {} changed: {} disclosure(s) stale, {} DRHP document(s) invalidated",
                     factLineageId, disclosures, documents);
         }
         return impacted;
