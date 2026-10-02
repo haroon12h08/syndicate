@@ -29,13 +29,17 @@ public class ChangePropagationService {
     private final DependencyGraphService graph;
     private final DisclosureRepository disclosureRepository;
     private final DrhpDocumentRepository drhpRepository;
+    private final com.syndicate.filing.DocumentApprovalRepository approvalRepository;
     private final EntityManager entityManager;
 
     public ChangePropagationService(DependencyGraphService graph, DisclosureRepository disclosureRepository,
-                                    DrhpDocumentRepository drhpRepository, EntityManager entityManager) {
+                                    DrhpDocumentRepository drhpRepository,
+                                    com.syndicate.filing.DocumentApprovalRepository approvalRepository,
+                                    EntityManager entityManager) {
         this.graph = graph;
         this.disclosureRepository = disclosureRepository;
         this.drhpRepository = drhpRepository;
+        this.approvalRepository = approvalRepository;
         this.entityManager = entityManager;
     }
 
@@ -60,7 +64,12 @@ public class ChangePropagationService {
             } else if (node.type() == GraphNodeType.DOCUMENT) {
                 drhpRepository.findById(node.id())
                         .filter(doc -> doc.getStatus() == DrhpStatus.COMPILED)
-                        .ifPresent(doc -> doc.invalidate(reason + " (after compilation)"));
+                        .ifPresent(doc -> {
+                            doc.invalidate(reason + " (after compilation)");
+                            // an approval covers one exact version, so it cannot survive this
+                            approvalRepository.findByDocumentId(doc.getId())
+                                    .forEach(approval -> approval.invalidate(reason));
+                        });
                 documents++;
             }
         }
