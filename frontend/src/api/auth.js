@@ -11,3 +11,7 @@ export function login(payload) {
 export function me() {
   return apiGet('/auth/me');
 }
+
+export function logout() {
+  return apiPost('/auth/logout');
+}

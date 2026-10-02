@@ -1,5 +1,8 @@
 package com.syndicate.auth;
 
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+
 import com.syndicate.auth.dto.AuthResponse;
 import com.syndicate.auth.dto.LoginRequest;
 import com.syndicate.auth.dto.RegisterRequest;
@@ -27,13 +30,27 @@ public class AuthController {
 
     @PostMapping("/register")
     @ResponseStatus(HttpStatus.CREATED)
-    public AuthResponse register(@Valid @RequestBody RegisterRequest request) {
-        return authService.register(request);
+    public AuthResponse register(@Valid @RequestBody RegisterRequest request,
+                                 HttpServletRequest httpRequest, HttpServletResponse httpResponse) {
+        return authService.register(request, httpRequest, httpResponse);
     }
 
     @PostMapping("/login")
-    public AuthResponse login(@Valid @RequestBody LoginRequest request) {
-        return authService.login(request);
+    public AuthResponse login(@Valid @RequestBody LoginRequest request,
+                              HttpServletRequest httpRequest, HttpServletResponse httpResponse) {
+        return authService.login(request, httpRequest, httpResponse);
+    }
+
+    /** Called when the short-lived access token runs out, and once when the app loads. */
+    @PostMapping("/refresh")
+    public AuthResponse refresh(HttpServletRequest httpRequest, HttpServletResponse httpResponse) {
+        return authService.refresh(httpRequest, httpResponse);
+    }
+
+    @PostMapping("/logout")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void logout(HttpServletRequest httpRequest, HttpServletResponse httpResponse) {
+        authService.logout(httpRequest, httpResponse);
     }
 
     @GetMapping("/me")

@@ -6,16 +6,56 @@ export function apiBaseUrl() {
   return BASE_URL;
 }
 
+// The access token lives in memory only: it is short-lived, and nothing a script on this page
+// can read survives the tab. Staying signed in is the session cookie's job, and the browser
+// will not hand that to any script.
+let accessToken = null;
+
 function getToken() {
-  return localStorage.getItem('syndicate_token');
+  return accessToken;
+}
+
+/** For the one place that cannot send a header: the server-sent events stream. */
+export function currentAccessToken() {
+  return accessToken;
 }
 
 export function setToken(token) {
-  if (token) {
-    localStorage.setItem('syndicate_token', token);
-  } else {
-    localStorage.removeItem('syndicate_token');
+  accessToken = token || null;
+}
+
+/** Exchanges the session cookie for a fresh access token. Returns false when there is no session. */
+export async function refreshAccessToken() {
+  try {
+    const response = await fetch(`${BASE_URL}/auth/refresh`, { method: 'POST', credentials: 'same-origin' });
+    if (!response.ok) {
+      accessToken = null;
+      return false;
+    }
+    const body = await response.json();
+    accessToken = body.token;
+    return body;
+  } catch {
+    accessToken = null;
+    return false;
   }
+}
+
+/**
+ * One place where a request is made, and the only place that knows an expired access token can
+ * be replaced silently. A person should never be thrown out of a half-finished review because a
+ * token aged out between two clicks.
+ */
+async function send(path, init, retrying = false) {
+  const response = await fetch(`${BASE_URL}${path}`, { credentials: 'same-origin', ...init,
+    headers: authHeaders(init.headers) });
+  if (response.status === 401 && !retrying && !path.startsWith('/auth/')) {
+    const refreshed = await refreshAccessToken();
+    if (refreshed) {
+      return send(path, init, true);
+    }
+  }
+  return response;
 }
 
 async function handleResponse(response) {
@@ -42,17 +82,15 @@ function authHeaders(extra = {}) {
 }
 
 export async function apiGet(path) {
-  const response = await fetch(`${BASE_URL}${path}`, { headers: authHeaders() });
-  return handleResponse(response);
+  return handleResponse(await send(path, { method: 'GET' }));
 }
 
 export async function apiSend(method, path, body) {
-  const response = await fetch(`${BASE_URL}${path}`, {
+  return handleResponse(await send(path, {
     method,
-    headers: authHeaders({ 'Content-Type': 'application/json' }),
+    headers: { 'Content-Type': 'application/json' },
     body: body !== undefined ? JSON.stringify(body) : undefined,
-  });
-  return handleResponse(response);
+  }));
 }
 
 export async function apiPost(path, body) {
@@ -64,24 +102,15 @@ export async function apiPut(path, body) {
 }
 
 export async function apiDelete(path) {
-  const response = await fetch(`${BASE_URL}${path}`, {
-    method: 'DELETE',
-    headers: authHeaders(),
-  });
-  return handleResponse(response);
+  return handleResponse(await send(path, { method: 'DELETE' }));
 }
 
 export async function apiUpload(path, formData) {
-  const response = await fetch(`${BASE_URL}${path}`, {
-    method: 'POST',
-    headers: authHeaders(),
-    body: formData,
-  });
-  return handleResponse(response);
+  return handleResponse(await send(path, { method: 'POST', body: formData }));
 }
 
 export async function apiDownload(path) {
-  const response = await fetch(`${BASE_URL}${path}`, { headers: authHeaders() });
+  const response = await send(path, { method: 'GET' });
   if (!response.ok) {
     throw new Error('Download failed');
   }
@@ -100,7 +129,7 @@ export async function apiDownload(path) {
 }
 
 export async function apiImageBlobUrl(path) {
-  const response = await fetch(`${BASE_URL}${path}`, { headers: authHeaders() });
+  const response = await send(path, { method: 'GET' });
   if (!response.ok) {
     throw new Error('Failed to load image');
   }

@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import * as authApi from '../api/auth';
-import { setToken } from '../api/client';
+import { refreshAccessToken, setToken } from '../api/client';
 
 const AuthContext = createContext(null);
 
@@ -9,13 +9,9 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const token = localStorage.getItem('syndicate_token');
-    if (!token) {
-      setLoading(false);
-      return;
-    }
-    authApi
-      .me()
+    // The page starts with no access token; if the browser still holds a session, this picks it up.
+    refreshAccessToken()
+      .then((session) => (session ? authApi.me() : null))
       .then(setUser)
       .catch(() => setUser(null))
       .finally(() => setLoading(false));
@@ -35,9 +31,13 @@ export function AuthProvider({ children }) {
     return response;
   }
 
-  function logout() {
-    setToken(null);
-    setUser(null);
+  async function logout() {
+    try {
+      await authApi.logout();
+    } finally {
+      setToken(null);
+      setUser(null);
+    }
   }
 
   return (

@@ -56,7 +56,8 @@ public class SecurityConfig {
                         .permissionsPolicy(policy -> policy.policy(
                                 "camera=(), microphone=(), geolocation=(), payment=()")))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/register", "/api/auth/login", "/api/health").permitAll()
+                        .requestMatchers("/api/auth/register", "/api/auth/login", "/api/auth/refresh",
+                                "/api/auth/logout", "/api/health").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/invitations/mine").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/invitations/*").permitAll()
                         .requestMatchers("/api/**").authenticated()
