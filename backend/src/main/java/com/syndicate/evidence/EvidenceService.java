@@ -11,18 +11,15 @@ import com.syndicate.common.ConflictException;
 import com.syndicate.common.ResourceNotFoundException;
 import com.syndicate.evidence.dto.EvidenceDto;
 import com.syndicate.evidence.dto.EvidenceIntegrityDto;
-import com.syndicate.ingestion.EvidenceExtractionPublisher;
+import com.syndicate.jobs.JobQueue;
+import com.syndicate.jobs.JobType;
 import com.syndicate.ingestion.PageImageCache;
 import com.syndicate.user.User;
 import com.syndicate.workstream.Workstream;
 import com.syndicate.workstream.WorkstreamService;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
@@ -34,31 +31,26 @@ import java.util.UUID;
 @Transactional
 public class EvidenceService {
 
-    private static final Logger log = LoggerFactory.getLogger(EvidenceService.class);
-
     private final EvidenceRepository evidenceRepository;
     private final WorkstreamService workstreamService;
     private final FileStorageService fileStorageService;
-    private final EvidenceExtractionPublisher extractionPublisher;
+    private final JobQueue jobQueue;
     private final PageImageCache pageImageCache;
     private final CandidateFactRepository candidateFactRepository;
-    private final EvidenceFailureRecorder failureRecorder;
     private final com.syndicate.transaction.TransactionService transactionService;
     private final AuditService auditService;
 
     public EvidenceService(EvidenceRepository evidenceRepository, WorkstreamService workstreamService,
-                            FileStorageService fileStorageService, EvidenceExtractionPublisher extractionPublisher,
+                            FileStorageService fileStorageService, JobQueue jobQueue,
                             PageImageCache pageImageCache, CandidateFactRepository candidateFactRepository,
-                            EvidenceFailureRecorder failureRecorder,
                             com.syndicate.transaction.TransactionService transactionService,
                             AuditService auditService) {
         this.evidenceRepository = evidenceRepository;
         this.workstreamService = workstreamService;
         this.fileStorageService = fileStorageService;
-        this.extractionPublisher = extractionPublisher;
+        this.jobQueue = jobQueue;
         this.pageImageCache = pageImageCache;
         this.candidateFactRepository = candidateFactRepository;
-        this.failureRecorder = failureRecorder;
         this.transactionService = transactionService;
         this.auditService = auditService;
     }
@@ -80,7 +72,7 @@ public class EvidenceService {
                 caller, sha256));
         auditService.record(transactionId, caller, AuditAction.EVIDENCE_UPLOADED, "Evidence", saved.getId(),
                 "Uploaded " + saved.getFileName(), null, sha256, null);
-        publishAfterCommit(saved.getId());
+        queueExtraction(saved.getId());
         return EvidenceDto.from(saved);
     }
 
@@ -111,7 +103,7 @@ public class EvidenceService {
         auditService.record(parent.getWorkstream().getTransaction().getId(), caller, AuditAction.EVIDENCE_VERSIONED,
                 "Evidence", saved.getId(), "New version v" + saved.getVersion() + " of " + parent.getFileName(),
                 parent.getFileSha256(), sha256, reason);
-        publishAfterCommit(saved.getId());
+        queueExtraction(saved.getId());
         return EvidenceDto.from(saved);
     }
 
@@ -169,13 +161,12 @@ public class EvidenceService {
         return file.getContentType() == null ? "application/octet-stream" : file.getContentType();
     }
 
-    private void publishAfterCommit(UUID evidenceId) {
-        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override
-            public void afterCommit() {
-                publishExtractionJobSafely(evidenceId);
-            }
-        });
+    /**
+     * Queues extraction as part of this transaction: the job exists exactly when the evidence does,
+     * so nothing can be uploaded and then silently never processed.
+     */
+    private void queueExtraction(UUID evidenceId) {
+        jobQueue.enqueue(JobType.EVIDENCE_EXTRACTION, evidenceId);
     }
 
     /** Every document on the deal, so the team has one place to work from. */
@@ -251,12 +242,7 @@ public class EvidenceService {
         }
         evidence.setProcessingStatus(ProcessingStatus.PENDING);
         evidence.setProcessingError(null);
-        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override
-            public void afterCommit() {
-                publishExtractionJobSafely(evidence.getId());
-            }
-        });
+        queueExtraction(evidence.getId());
         return EvidenceDto.from(evidence);
     }
 
@@ -266,20 +252,4 @@ public class EvidenceService {
         return pageImageCache.load(evidenceId, pageNumber);
     }
 
-    /**
-     * Publishes the extraction job after the enclosing transaction has committed.
-     * If publishing fails (e.g. the message broker is unreachable), the evidence
-     * would otherwise be stuck at PENDING forever with no recovery path, since the
-     * frontend's Retry action only surfaces for FAILED evidence. Instead, mark the
-     * evidence FAILED (in a fresh transaction, since the original has committed)
-     * so the existing Retry flow can recover it.
-     */
-    private void publishExtractionJobSafely(UUID evidenceId) {
-        try {
-            extractionPublisher.publishExtractionJob(evidenceId);
-        } catch (Exception e) {
-            log.error("Failed to publish extraction job for evidence {}", evidenceId, e);
-            failureRecorder.markExtractionQueueFailure(evidenceId, e);
-        }
-    }
 }

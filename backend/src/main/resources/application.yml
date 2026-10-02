@@ -19,11 +19,6 @@ spring:
         format_sql: true
   flyway:
     enabled: true
-  rabbitmq:
-    host: ${SYNDICATE_RABBITMQ_HOST:localhost}
-    port: ${SYNDICATE_RABBITMQ_PORT:5672}
-    username: ${SYNDICATE_RABBITMQ_USER:guest}
-    password: ${SYNDICATE_RABBITMQ_PASSWORD:guest}
   servlet:
     multipart:
       max-file-size: 25MB
@@ -33,6 +28,10 @@ syndicate:
   jwt:
     secret: ${SYNDICATE_JWT_SECRET:dev-only-secret-change-me-please-this-must-be-at-least-32-bytes-long}
     expiration-ms: ${SYNDICATE_JWT_EXPIRATION_MS:86400000}
+  jobs:
+    # Background extraction runs in this process. Set enabled=false to run an API-only instance.
+    enabled: ${SYNDICATE_JOBS_ENABLED:true}
+    poll-ms: ${SYNDICATE_JOBS_POLL_MS:1000}
   storage:
     upload-dir: ${SYNDICATE_UPLOAD_DIR:./uploads}
   cors:
