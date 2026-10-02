@@ -16,11 +16,20 @@ import java.util.UUID;
 public class ImpactController {
 
     private final DependencyGraphService graph;
+    private final ImpactService impactService;
     private final TransactionService transactionService;
 
-    public ImpactController(DependencyGraphService graph, TransactionService transactionService) {
+    public ImpactController(DependencyGraphService graph, ImpactService impactService,
+                            TransactionService transactionService) {
         this.graph = graph;
+        this.impactService = impactService;
         this.transactionService = transactionService;
+    }
+
+    /** What a change to this fact would reach, before anyone changes it. */
+    @GetMapping("/api/facts/{id}/impact")
+    public ImpactService.ImpactSet impact(@PathVariable UUID id, @AuthenticationPrincipal User currentUser) {
+        return impactService.forFact(id, currentUser.getId());
     }
 
     /** Everything that depends, directly or transitively, on the given node. */

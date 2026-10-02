@@ -1,5 +1,9 @@
 import { apiDelete, apiGet, apiPost, apiPut } from './client';
 
+export function getFactImpact(id) {
+  return apiGet(`/facts/${id}/impact`);
+}
+
 export function listTransactionFacts(transactionId) {
   return apiGet(`/transactions/${transactionId}/facts`);
 }

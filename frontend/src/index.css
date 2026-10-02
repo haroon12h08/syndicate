@@ -1646,3 +1646,16 @@ a.stat-tile:hover { border-color: #4a4a4a; }
 
 .fact-reviews { margin-top: 2rem; display: flex; flex-direction: column; gap: 0.75rem; }
 .fact-picker-list li button { color: var(--text); }
+
+.impact-notice {
+  border: 1px solid var(--border);
+  border-left: 3px solid #fbbf24;
+  border-radius: var(--radius);
+  padding: 0.75rem 1rem;
+  margin-bottom: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.impact-notice ul { margin: 0; padding-left: 1.1rem; }

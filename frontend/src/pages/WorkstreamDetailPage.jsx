@@ -8,6 +8,7 @@ import * as evidenceApi from '../api/evidence';
 import * as issuesApi from '../api/issues';
 import * as candidateFactsApi from '../api/candidateFacts';
 import FactForm from '../components/FactForm';
+import ImpactNotice from '../components/ImpactNotice';
 import EvidenceUploadForm from '../components/EvidenceUploadForm';
 import IssueForm from '../components/IssueForm';
 import CandidateFactCard from '../components/CandidateFactCard';
@@ -446,8 +447,9 @@ export default function WorkstreamDetailPage() {
               {correctingFactId === f.id && (
                 <tr>
                   <td colSpan={6}>
+                    <ImpactNotice factId={f.id} />
                     <FactForm
-                      initial={{ label: f.label, value: f.value, unit: f.unit || '', period: f.period || '' }}
+                      initial={{ factKey: f.factKey, label: f.label, value: f.value, unit: f.unit || '', period: f.period || '' }}
                       submitLabel="Save correction (new version)"
                       onSubmit={(payload) => handleSupersedeFact(f.id, payload)}
                       onCancel={() => setCorrectingFactId(null)}
