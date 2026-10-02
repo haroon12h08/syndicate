@@ -9,6 +9,8 @@ import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
 
+import java.time.LocalDate;
+
 @Entity
 @Table(name = "regulatory_rules")
 public class RegulatoryRule extends BaseEntity {
@@ -30,8 +32,30 @@ public class RegulatoryRule extends BaseEntity {
     @Column(nullable = false)
     private IssueSeverity severity;
 
-    @Column(name = "fact_label_pattern", nullable = false)
-    private String factLabelPattern;
+    @Column(name = "fact_key", nullable = false)
+    private String factKey;
+
+    @Column(name = "source_authority")
+    private String sourceAuthority;
+
+    @Column(name = "source_citation")
+    private String sourceCitation;
+
+    @Column(name = "source_url")
+    private String sourceUrl;
+
+    @Column(name = "effective_from")
+    private LocalDate effectiveFrom;
+
+    @Column(name = "effective_to")
+    private LocalDate effectiveTo;
+
+    @Column(nullable = false)
+    private int version;
+
+    /** INTERNAL_POLICY means this is a configured check, not a statement of regulation. */
+    @Column(name = "provenance_status", nullable = false)
+    private String provenanceStatus;
 
     @Column(name = "minimum_facts", nullable = false)
     private int minimumFacts;
@@ -68,8 +92,36 @@ public class RegulatoryRule extends BaseEntity {
         return severity;
     }
 
-    public String getFactLabelPattern() {
-        return factLabelPattern;
+    public String getFactKey() {
+        return factKey;
+    }
+
+    public String getSourceAuthority() {
+        return sourceAuthority;
+    }
+
+    public String getSourceCitation() {
+        return sourceCitation;
+    }
+
+    public String getSourceUrl() {
+        return sourceUrl;
+    }
+
+    public LocalDate getEffectiveFrom() {
+        return effectiveFrom;
+    }
+
+    public LocalDate getEffectiveTo() {
+        return effectiveTo;
+    }
+
+    public int getVersion() {
+        return version;
+    }
+
+    public String getProvenanceStatus() {
+        return provenanceStatus;
     }
 
     public int getMinimumFacts() {

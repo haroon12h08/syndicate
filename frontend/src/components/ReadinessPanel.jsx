@@ -33,7 +33,7 @@ export default function ReadinessPanel({ readiness, onEvaluate, evaluating }) {
   return (
     <section className="readiness-panel">
       <div className="page-header">
-        <h2>Filing readiness</h2>
+        <h2>Configured checks</h2>
         <button onClick={onEvaluate} disabled={evaluating}>
           {evaluating ? 'Evaluating...' : 'Re-evaluate rules'}
         </button>
@@ -70,6 +70,14 @@ export default function ReadinessPanel({ readiness, onEvaluate, evaluating }) {
             {openRule === rule.id && (
               <div className="rule-row-body">
                 <p>{rule.ruleDescription}</p>
+                {rule.provenanceStatus !== 'SOURCED' && (
+                  <p className="hint">
+                    Configured check, not a statement of regulation. {rule.sourceCitation}
+                  </p>
+                )}
+                {rule.sourceUrl && (
+                  <p className="hint"><a href={rule.sourceUrl} target="_blank" rel="noreferrer">Source</a></p>
+                )}
                 <div className="detail-grid">
                   <div><strong>Required</strong><span>{rule.requirementSummary}</span></div>
                   <div><strong>Current value</strong><span>{rule.actualValue || 'Not recorded'}</span></div>

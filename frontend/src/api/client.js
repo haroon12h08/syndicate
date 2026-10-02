@@ -1,5 +1,6 @@
-// Baked in at build time so the same image can point at any API origin.
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api';
+// The API is served from the same origin as the app, so no host needs configuring anywhere.
+// In development Vite proxies /api to the local backend (see vite.config.js).
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
 export function apiBaseUrl() {
   return BASE_URL;

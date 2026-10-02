@@ -31,15 +31,15 @@ public class RuleFactContext {
         return variables.get(name);
     }
 
-    public List<Fact> matching(String labelPattern) {
-        String needle = labelPattern.toLowerCase();
+    /** Facts are addressed by semantic key, so a rule cannot be broken by renaming a label. */
+    public List<Fact> matching(String factKey) {
         return facts.stream()
-                .filter(f -> f.getLabel().toLowerCase().contains(needle))
+                .filter(f -> f.getFactKey().equalsIgnoreCase(factKey))
                 .toList();
     }
 
-    public Double factValue(String labelPattern) {
-        List<Fact> matches = matching(labelPattern);
+    public Double factValue(String factKey) {
+        List<Fact> matches = matching(factKey);
         touchedFacts.addAll(matches);
         return matches.stream()
                 .map(this::numericValue)
@@ -48,14 +48,14 @@ public class RuleFactContext {
                 .orElse(null);
     }
 
-    public int factCount(String labelPattern) {
-        List<Fact> matches = matching(labelPattern);
+    public int factCount(String factKey) {
+        List<Fact> matches = matching(factKey);
         touchedFacts.addAll(matches);
         return matches.size();
     }
 
-    public int countFactsAbove(String labelPattern, double threshold) {
-        List<Fact> matches = matching(labelPattern);
+    public int countFactsAbove(String factKey, double threshold) {
+        List<Fact> matches = matching(factKey);
         touchedFacts.addAll(matches);
         return (int) matches.stream()
                 .map(this::numericValue)
@@ -67,8 +67,8 @@ public class RuleFactContext {
      * Earliest business-validity end among matching facts. A fact with no {@code validTo} is
      * still true today, so it never constrains the minimum.
      */
-    public Double minValidToEpochMillis(String labelPattern) {
-        List<Fact> matches = matching(labelPattern);
+    public Double minValidToEpochMillis(String factKey) {
+        List<Fact> matches = matching(factKey);
         touchedFacts.addAll(matches);
         if (matches.isEmpty()) {
             return null;

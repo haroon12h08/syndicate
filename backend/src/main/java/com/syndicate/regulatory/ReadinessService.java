@@ -127,7 +127,7 @@ public class ReadinessService {
                 .orElseGet(() -> evaluationRepository.save(new RuleEvaluation(transaction, rule)));
 
         RuleFactContext context = new RuleFactContext(verifiedFacts, variables);
-        List<Fact> candidates = context.matching(rule.getFactLabelPattern());
+        List<Fact> candidates = context.matching(rule.getFactKey());
 
         RuleEvaluationStatus status;
         String actualValue = null;
@@ -135,8 +135,8 @@ public class ReadinessService {
 
         if (candidates.size() < rule.getMinimumFacts()) {
             status = RuleEvaluationStatus.MISSING_EVIDENCE;
-            detail = "Needs at least " + rule.getMinimumFacts() + " verified fact(s) labelled like \""
-                    + rule.getFactLabelPattern() + "\"; found " + candidates.size() + ".";
+            detail = "Needs at least " + rule.getMinimumFacts() + " verified " + rule.getFactKey()
+                    + " fact(s); found " + candidates.size() + ".";
         } else {
             try {
                 boolean passed = expressionEvaluator.evaluate(rule.getExpression(), context);

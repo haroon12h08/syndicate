@@ -24,8 +24,11 @@ import java.util.List;
 @Configuration
 public class SecurityConfig {
 
-    /** Comma-separated; the dev server shifts ports when one is already taken. */
-    @Value("${syndicate.cors.allowed-origins}")
+    /**
+     * Normally empty: the app is served from the API's own origin, so there is no cross-origin
+     * request to allow. Set it only when a separate front end is deliberately hosted elsewhere.
+     */
+    @Value("${syndicate.cors.allowed-origins:}")
     private String allowedOrigins;
 
     @Bean
@@ -40,11 +43,25 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .headers(headers -> headers
+                        .frameOptions(frame -> frame.deny())
+                        .contentSecurityPolicy(csp -> csp.policyDirectives(
+                                "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; "
+                                        + "font-src 'self' data:; connect-src 'self'; object-src 'none'; "
+                                        + "base-uri 'self'; form-action 'self'; frame-ancestors 'none'"))
+                        .referrerPolicy(ref -> ref.policy(
+                                org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter
+                                        .ReferrerPolicy.SAME_ORIGIN))
+                        .httpStrictTransportSecurity(hsts -> hsts.includeSubDomains(true).maxAgeInSeconds(31536000))
+                        .permissionsPolicy(policy -> policy.policy(
+                                "camera=(), microphone=(), geolocation=(), payment=()")))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/register", "/api/auth/login", "/api/health").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/invitations/mine").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/invitations/*").permitAll()
-                        .anyRequest().authenticated()
+                        .requestMatchers("/api/**").authenticated()
+                        // the app shell and its assets; every API route above is already covered
+                        .anyRequest().permitAll()
                 )
                 .addFilterBefore(new JwtAuthFilter(jwtService, userRepository), UsernamePasswordAuthenticationFilter.class);
 
