@@ -44,6 +44,13 @@ public class FactController {
         return factService.list(workstreamId, includeSuperseded, currentUser.getId());
     }
 
+    @GetMapping("/api/transactions/{transactionId}/facts")
+    public List<FactDto> listForTransaction(@PathVariable UUID transactionId,
+                                            @RequestParam(defaultValue = "false") boolean includeSuperseded,
+                                            @AuthenticationPrincipal User currentUser) {
+        return factService.listForTransaction(transactionId, includeSuperseded, currentUser.getId());
+    }
+
     @GetMapping("/api/facts/{id}/trace")
     public FactTraceDto trace(@PathVariable UUID id, @AuthenticationPrincipal User currentUser) {
         return factService.trace(id, currentUser.getId());

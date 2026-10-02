@@ -12,12 +12,15 @@ import * as drhpApi from '../api/drhp';
 import * as evidenceApi from '../api/evidence';
 import * as conflictsApi from '../api/conflicts';
 import * as workbenchApi from '../api/workbench';
+import * as filingApi from '../api/filing';
+import * as factsApi from '../api/facts';
 import ReadinessPanel from '../components/ReadinessPanel';
 import TaskBoard from '../components/TaskBoard';
 import DrhpPanel from '../components/DrhpPanel';
 import DocumentsPanel from '../components/DocumentsPanel';
 import ConflictsPanel from '../components/ConflictsPanel';
 import WorkbenchPanel from '../components/WorkbenchPanel';
+import FilingPanel from '../components/FilingPanel';
 import AuditTimeline from '../components/AuditTimeline';
 import ProvenanceDrawer from '../components/ProvenanceDrawer';
 import { TRANSACTION_ROLES, TRANSACTION_STATUSES, WORKSTREAM_TYPES, humanize } from '../constants';
@@ -30,6 +33,7 @@ const TABS = [
   { key: 'conflicts', label: 'Conflicts' },
   { key: 'tasks', label: 'Tasks' },
   { key: 'drhp', label: 'DRHP' },
+  { key: 'filing', label: 'Filing' },
   { key: 'team', label: 'Team' },
   { key: 'audit', label: 'Audit' },
 ];
@@ -63,6 +67,8 @@ export default function TransactionDetailPage() {
   const [auditEvents, setAuditEvents] = useState([]);
   const [conflicts, setConflicts] = useState([]);
   const [workbench, setWorkbench] = useState(null);
+  const [filing, setFiling] = useState(null);
+  const [facts, setFacts] = useState([]);
   const [provenance, setProvenance] = useState(null);
   const [error, setError] = useState(null);
 
@@ -91,6 +97,8 @@ export default function TransactionDetailPage() {
       transactionsApi.listAudit(id).then(setAuditEvents).catch(() => setAuditEvents([]));
       conflictsApi.listConflicts(id).then(setConflicts).catch(() => setConflicts([]));
       workbenchApi.getWorkbench(id).then(setWorkbench).catch(() => setWorkbench(null));
+      filingApi.getFilingStatus(id).then(setFiling).catch(() => setFiling(null));
+      factsApi.listTransactionFacts(id).then(setFacts).catch(() => setFacts([]));
       setTransaction(txn);
       setMemberships(members);
       setWorkstreams(ws);
@@ -515,6 +523,7 @@ export default function TransactionDetailPage() {
 
       {tab === 'drhp' && (
       <DrhpPanel
+        facts={facts}
         disclosures={disclosures}
         document={drhpDocument}
         compileResult={compileResult}
@@ -527,6 +536,23 @@ export default function TransactionDetailPage() {
       )}
 
       {tab === 'conflicts' && <ConflictsPanel conflicts={conflicts} onResolve={handleResolveConflict} />}
+
+      {tab === 'filing' && (
+        <FilingPanel
+          filing={filing}
+          currentRole={myMembership?.role}
+          onApprove={async (documentId) => {
+            await filingApi.approveDocument(documentId);
+            toast.success('Approval recorded');
+            await load();
+          }}
+          onAssemble={async (documentId) => {
+            await filingApi.assemblePackage(documentId);
+            toast.success('Filing package assembled');
+            await load();
+          }}
+        />
+      )}
 
       {tab === 'audit' && <AuditTimeline events={auditEvents} />}
 

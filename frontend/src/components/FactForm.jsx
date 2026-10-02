@@ -1,6 +1,7 @@
 import { useState } from 'react';
+import FactKeyPicker from './FactKeyPicker';
 
-const empty = { label: '', value: '', unit: '', period: '', validFrom: '', validTo: '' };
+const empty = { factKey: null, label: '', value: '', unit: '', period: '', validFrom: '', validTo: '' };
 
 export default function FactForm({ initial, submitLabel, onSubmit, onCancel }) {
   const [form, setForm] = useState({ ...empty, ...initial });
@@ -30,8 +31,15 @@ export default function FactForm({ initial, submitLabel, onSubmit, onCancel }) {
   return (
     <form className="card-form" onSubmit={handleSubmit}>
       <label>
-        Label
-        <input value={form.label} onChange={(e) => update('label', e.target.value)} placeholder="e.g. Revenue FY2026" required />
+        What is this?
+        <FactKeyPicker
+          value={form.factKey}
+          label={form.label}
+          onChange={(factKey, label) => setForm((f) => ({ ...f, factKey, label: label || f.label }))}
+        />
+        {!form.factKey && form.label && (
+          <span className="hint">Recorded as “{form.label}”.</span>
+        )}
       </label>
       <label>
         Value

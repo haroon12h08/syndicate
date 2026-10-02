@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import * as companiesApi from '../api/companies';
 import * as transactionsApi from '../api/transactions';
+import StartTransactionCard from '../components/StartTransactionCard';
 import * as organizationsApi from '../api/organizations';
 import * as invitationsApi from '../api/invitations';
 import { humanize } from '../constants';
@@ -39,9 +40,9 @@ export default function HomePage() {
       <div className="eyebrow">Welcome to Syndicate</div>
       <h1>{isNew ? `Let's get started, ${firstName}` : `Welcome back, ${firstName}`}</h1>
       <p className="hint page-intro">
-        Take a company from private to public: file the documents, ground every fact in
-        evidence, clear the SEBI rules, and compile a DRHP that can prove where each
-        number came from.
+        Upload what the company gives you, confirm what it establishes, and Syndicate keeps the
+        transaction honest: contradictions surface, nothing unverified reaches the document, and
+        every figure can be traced back to the page it came from.
       </p>
 
       {error && <div className="error-banner">{error}</div>}
@@ -57,39 +58,15 @@ export default function HomePage() {
       )}
 
       {isNew ? (
-        <section className="quickstart">
-          <h2>Start your first IPO</h2>
-          <ol className="quickstart-steps">
-            <li>
-              <strong>Register the company</strong>
-              <span className="hint">The issuer whose shares will be offered.</span>
-              <Link to="/companies"><button>Add a company →</button></Link>
-            </li>
-            <li>
-              <strong>Open a transaction</strong>
-              <span className="hint">The SME IPO itself, from the company's page.</span>
-            </li>
-            <li>
-              <strong>Add workstreams and upload documents</strong>
-              <span className="hint">
-                Financials, licences, litigation. Uploads are parsed into candidate facts
-                you review before they count.
-              </span>
-            </li>
-            <li>
-              <strong>Clear the rules, then compile the DRHP</strong>
-              <span className="hint">
-                The compiler refuses to print any value a human has not verified.
-              </span>
-            </li>
-          </ol>
-        </section>
+        <StartTransactionCard />
       ) : (
-        <div className="form-actions page-actions">
-          <Link to="/companies"><button>New company</button></Link>
-          <Link to="/companies"><button className="secondary">All companies</button></Link>
-          <Link to="/organizations"><button className="secondary">Organizations</button></Link>
-        </div>
+        <>
+          <StartTransactionCard compact />
+          <div className="form-actions page-actions">
+            <Link to="/companies"><button className="secondary">Companies</button></Link>
+            <Link to="/organizations"><button className="secondary">Organizations</button></Link>
+          </div>
+        </>
       )}
 
       <div className="stat-grid">

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { humanize } from '../constants';
+import DisclosureBodyEditor from './DisclosureBodyEditor';
 
 function disclosureBadge(status) {
   if (status === 'READY') return 'badge badge-complete';
@@ -11,7 +12,7 @@ function disclosureBadge(status) {
 const EMPTY_FORM = { sectionCode: '', title: '', bodyTemplate: '', orderIndex: 0, status: 'DRAFT' };
 
 export default function DrhpPanel({
-  disclosures, document: drhpDocument, compileResult, compiling,
+  disclosures, document: drhpDocument, compileResult, compiling, facts = [],
   onCompile, onCreateDisclosure, onUpdateDisclosure, onInspectProvenance,
 }) {
   const [showForm, setShowForm] = useState(false);
@@ -117,15 +118,12 @@ export default function DrhpPanel({
             <input value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} required />
           </label>
           <label>
-            Body template
-            <textarea
-              rows={4}
+            Body
+            <DisclosureBodyEditor
               value={form.bodyTemplate}
-              onChange={(e) => setForm((f) => ({ ...f, bodyTemplate: e.target.value }))}
-              placeholder="Use {{fact:Label}} to cite a verified fact."
-              required
+              facts={facts}
+              onChange={(bodyTemplate) => setForm((f) => ({ ...f, bodyTemplate }))}
             />
-            <span className="hint">{'Cite facts with {{fact:Exact Fact Label}} — only human-verified facts resolve.'}</span>
           </label>
           <button type="submit">Create disclosure</button>
         </form>
@@ -167,9 +165,12 @@ export default function DrhpPanel({
               <input value={editForm.title} onChange={(e) => setEditForm((f) => ({ ...f, title: e.target.value }))} />
             </label>
             <label>
-              Body template
-              <textarea rows={6} value={editForm.bodyTemplate}
-                onChange={(e) => setEditForm((f) => ({ ...f, bodyTemplate: e.target.value }))} />
+              Body
+              <DisclosureBodyEditor
+                value={editForm.bodyTemplate}
+                facts={facts}
+                onChange={(bodyTemplate) => setEditForm((f) => ({ ...f, bodyTemplate }))}
+              />
             </label>
             <label>
               Status

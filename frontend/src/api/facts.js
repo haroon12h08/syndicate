@@ -1,5 +1,9 @@
 import { apiDelete, apiGet, apiPost, apiPut } from './client';
 
+export function listTransactionFacts(transactionId) {
+  return apiGet(`/transactions/${transactionId}/facts`);
+}
+
 export function listFacts(workstreamId, includeSuperseded = false) {
   return apiGet(`/workstreams/${workstreamId}/facts?includeSuperseded=${includeSuperseded}`);
 }

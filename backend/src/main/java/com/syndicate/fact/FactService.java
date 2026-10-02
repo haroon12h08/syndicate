@@ -51,6 +51,7 @@ public class FactService {
     private final FactKeyResolver factKeyResolver;
     private final FactConflictRepository conflictRepository;
     private final com.syndicate.drhp.DrhpService drhpService;
+    private final com.syndicate.transaction.TransactionService transactionService;
 
     public FactService(FactRepository factRepository, EvidenceRepository evidenceRepository,
                         WorkstreamService workstreamService, PermissionService permissionService,
@@ -61,7 +62,8 @@ public class FactService {
                         AuditService auditService,
                         FactKeyResolver factKeyResolver,
                         FactConflictRepository conflictRepository,
-                        @org.springframework.context.annotation.Lazy com.syndicate.drhp.DrhpService drhpService) {
+                        @org.springframework.context.annotation.Lazy com.syndicate.drhp.DrhpService drhpService,
+                        com.syndicate.transaction.TransactionService transactionService) {
         this.factRepository = factRepository;
         this.evidenceRepository = evidenceRepository;
         this.workstreamService = workstreamService;
@@ -74,6 +76,7 @@ public class FactService {
         this.factKeyResolver = factKeyResolver;
         this.conflictRepository = conflictRepository;
         this.drhpService = drhpService;
+        this.transactionService = transactionService;
     }
 
     @Transactional
@@ -92,6 +95,15 @@ public class FactService {
                 "Recorded " + saved.getLabel() + " = " + saved.getValue(), null, saved.getValue(), null);
         conflictDetectionService.detect(txId, caller);
         return FactDto.from(saved);
+    }
+
+    /** Every fact on the transaction, for views that work across workstreams. */
+    public List<FactDto> listForTransaction(UUID transactionId, boolean includeSuperseded, UUID callerId) {
+        transactionService.requireMembership(transactionId, callerId);
+        return factRepository.findByWorkstreamTransactionId(transactionId).stream()
+                .filter(f -> includeSuperseded || f.getStatus() != FactStatus.SUPERSEDED)
+                .map(FactDto::from)
+                .toList();
     }
 
     public List<FactDto> list(UUID workstreamId, boolean includeSuperseded, UUID callerId) {
