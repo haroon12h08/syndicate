@@ -13,6 +13,7 @@ import com.syndicate.drhp.dto.SaveDisclosureRequest;
 import com.syndicate.fact.Fact;
 import com.syndicate.provenance.ProvenanceService;
 import com.syndicate.fact.FactRepository;
+import com.syndicate.fact.FactStatus;
 import com.syndicate.regulatory.RuleEvaluation;
 import com.syndicate.regulatory.RuleEvaluationRepository;
 import com.syndicate.regulatory.RuleEvaluationStatus;
@@ -79,7 +80,9 @@ public class DrhpService {
             disclosure.edit(request.title(), request.bodyTemplate(), request.status(),
                     disclosure.getOrderIndex());
         }
-        return DisclosureDto.from(disclosureRepository.save(disclosure));
+        Disclosure saved = disclosureRepository.save(disclosure);
+        syncPlaceholderDependencies(saved);
+        return DisclosureDto.from(saved);
     }
 
     @Transactional
@@ -88,7 +91,43 @@ public class DrhpService {
         transactionService.requireMembership(disclosure.getTransaction().getId(), caller.getId());
         disclosure.edit(request.title(), request.bodyTemplate(), request.status(),
                 request.orderIndex() != null ? request.orderIndex() : disclosure.getOrderIndex());
+        syncPlaceholderDependencies(disclosure);
         return DisclosureDto.from(disclosure);
+    }
+
+    /**
+     * Every {@code {{fact:...}}} in the body becomes a recorded dependency, so a later change to
+     * that fact finds this disclosure without anyone having to remember to link it. Facts linked
+     * by hand are kept: a disclosure can rely on a fact it does not quote.
+     */
+    private void syncPlaceholderDependencies(Disclosure disclosure) {
+        List<Fact> current = factRepository
+                .findByWorkstreamTransactionId(disclosure.getTransaction().getId()).stream()
+                .filter(f -> f.getStatus() != FactStatus.SUPERSEDED && f.getStatus() != FactStatus.REJECTED)
+                .toList();
+        for (DrhpCompiler.Reference reference : DrhpCompiler.references(disclosure.getBodyTemplate())) {
+            current.stream()
+                    .filter(f -> f.getFactKey().equalsIgnoreCase(reference.factKey()))
+                    .filter(f -> reference.period() == null || reference.period().equalsIgnoreCase(f.getPeriod()))
+                    .forEach(f -> disclosure.getSourceFacts().add(f));
+        }
+    }
+
+    /**
+     * Called when a fact becomes usable: any disclosure that already quotes this key now depends
+     * on it, even though it was written before the fact existed.
+     */
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public void linkDisclosuresReferencing(UUID transactionId, Fact fact) {
+        for (Disclosure disclosure : disclosureRepository
+                .findByTransactionIdOrderByOrderIndexAscCreatedAtAsc(transactionId)) {
+            boolean quoted = DrhpCompiler.references(disclosure.getBodyTemplate()).stream()
+                    .anyMatch(ref -> ref.factKey().equalsIgnoreCase(fact.getFactKey())
+                            && (ref.period() == null || ref.period().equalsIgnoreCase(fact.getPeriod())));
+            if (quoted) {
+                disclosure.getSourceFacts().add(fact);
+            }
+        }
     }
 
     /** Records a dependency edge so later fact changes can find this disclosure. */

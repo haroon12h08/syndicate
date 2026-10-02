@@ -50,6 +50,7 @@ public class FactService {
     private final AuditService auditService;
     private final FactKeyResolver factKeyResolver;
     private final FactConflictRepository conflictRepository;
+    private final com.syndicate.drhp.DrhpService drhpService;
 
     public FactService(FactRepository factRepository, EvidenceRepository evidenceRepository,
                         WorkstreamService workstreamService, PermissionService permissionService,
@@ -59,7 +60,8 @@ public class FactService {
                         ConflictDetectionService conflictDetectionService,
                         AuditService auditService,
                         FactKeyResolver factKeyResolver,
-                        FactConflictRepository conflictRepository) {
+                        FactConflictRepository conflictRepository,
+                        @org.springframework.context.annotation.Lazy com.syndicate.drhp.DrhpService drhpService) {
         this.factRepository = factRepository;
         this.evidenceRepository = evidenceRepository;
         this.workstreamService = workstreamService;
@@ -71,6 +73,7 @@ public class FactService {
         this.auditService = auditService;
         this.factKeyResolver = factKeyResolver;
         this.conflictRepository = conflictRepository;
+        this.drhpService = drhpService;
     }
 
     @Transactional
@@ -249,6 +252,7 @@ public class FactService {
         }
         fact.markVerified(caller, Instant.now());
         UUID txId = workstream.getTransaction().getId();
+        drhpService.linkDisclosuresReferencing(txId, fact);
         auditService.record(txId, caller, AuditAction.FACT_VERIFIED, "Fact", fact.getId(),
                 "Verified " + fact.getLabel() + " = " + fact.getValue());
         scheduleAfterCommit(() -> readinessService.reevaluateQuietly(txId, caller));

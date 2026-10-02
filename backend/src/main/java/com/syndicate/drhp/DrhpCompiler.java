@@ -15,8 +15,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Renders disclosures into DRHP sections, resolving {@code {{fact:Label}}} placeholders against
- * the transaction's facts.
+ * Renders disclosures into DRHP sections, resolving {@code {{fact:<key>}}} placeholders (optionally
+ * {@code {{fact:<key>@<period>}}}) against the transaction's facts.
  *
  * <p>This is where Zero AI Authority cashes out at document level: a placeholder only resolves
  * against a VERIFIED fact. A value that came from an extraction and was never accepted by a human
@@ -26,7 +26,24 @@ import java.util.regex.Pattern;
 @Component
 public class DrhpCompiler {
 
-    private static final Pattern PLACEHOLDER = Pattern.compile("\\{\\{fact:([^}]+)}}");
+    private static final Pattern PLACEHOLDER = Pattern.compile("\\{\\{fact:([^}@]+)(?:@([^}]+))?}}");
+
+    /** Every placeholder in a template, as written. */
+    public static List<Reference> references(String template) {
+        List<Reference> references = new ArrayList<>();
+        Matcher matcher = PLACEHOLDER.matcher(template == null ? "" : template);
+        while (matcher.find()) {
+            references.add(new Reference(matcher.group(1).trim(),
+                    matcher.group(2) == null ? null : matcher.group(2).trim()));
+        }
+        return references;
+    }
+
+    public record Reference(String factKey, String period) {
+        public String display() {
+            return period == null ? factKey : factKey + "@" + period;
+        }
+    }
 
     public record CompileResult(List<CompiledSection> sections, List<LintFinding> findings, Set<Fact> citedFacts) {
         public boolean clean() {
@@ -68,8 +85,9 @@ public class DrhpCompiler {
             if (matcher.start() > cursor) {
                 segments.add(CompiledSegment.text(template.substring(cursor, matcher.start())));
             }
-            String label = matcher.group(1).trim();
-            segments.add(resolvePlaceholder(disclosure, label, facts, findings, cited));
+            Reference reference = new Reference(matcher.group(1).trim(),
+                    matcher.group(2) == null ? null : matcher.group(2).trim());
+            segments.add(resolvePlaceholder(disclosure, reference, facts, findings, cited));
             cursor = matcher.end();
         }
         if (cursor < template.length()) {
@@ -79,11 +97,13 @@ public class DrhpCompiler {
         return new CompiledSection(disclosure.getId(), disclosure.getSectionCode(), disclosure.getTitle(), segments);
     }
 
-    private CompiledSegment resolvePlaceholder(Disclosure disclosure, String label, List<Fact> facts,
+    private CompiledSegment resolvePlaceholder(Disclosure disclosure, Reference reference, List<Fact> facts,
                                                 List<LintFinding> findings, Set<Fact> cited) {
         List<Fact> matches = facts.stream()
-                .filter(f -> f.getLabel().equalsIgnoreCase(label))
-                .filter(f -> f.getStatus() != FactStatus.SUPERSEDED)
+                .filter(f -> f.getFactKey().equalsIgnoreCase(reference.factKey()))
+                .filter(f -> reference.period() == null
+                        || reference.period().equalsIgnoreCase(f.getPeriod()))
+                .filter(f -> f.getStatus() != FactStatus.SUPERSEDED && f.getStatus() != FactStatus.REJECTED)
                 .toList();
 
         List<Fact> verified = matches.stream()
@@ -92,16 +112,16 @@ public class DrhpCompiler {
 
         if (verified.isEmpty()) {
             String reason = matches.isEmpty()
-                    ? "No fact labelled \"" + label + "\" exists in this transaction."
-                    : "The fact \"" + label + "\" exists but has not been verified by a human yet.";
-            findings.add(new LintFinding("UNRESOLVED_FACT", disclosure.getSectionCode(), label, reason));
-            return CompiledSegment.unresolved(label);
+                    ? "No fact " + reference.display() + " exists in this transaction."
+                    : "The fact " + reference.display() + " exists but has not been verified by a human yet.";
+            findings.add(new LintFinding("UNRESOLVED_FACT", disclosure.getSectionCode(), reference.display(), reason));
+            return CompiledSegment.unresolved(reference.display());
         }
         if (verified.size() > 1) {
-            findings.add(new LintFinding("AMBIGUOUS_FACT", disclosure.getSectionCode(), label,
-                    verified.size() + " verified facts share the label \"" + label
-                            + "\". Exactly one must apply."));
-            return CompiledSegment.unresolved(label);
+            findings.add(new LintFinding("AMBIGUOUS_FACT", disclosure.getSectionCode(), reference.display(),
+                    verified.size() + " verified facts answer to " + reference.display()
+                            + ". Name the period, as in {{fact:" + reference.factKey() + "@FY2026}}."));
+            return CompiledSegment.unresolved(reference.display());
         }
 
         Fact fact = verified.get(0);
