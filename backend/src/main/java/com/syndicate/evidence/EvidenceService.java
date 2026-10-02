@@ -39,12 +39,13 @@ public class EvidenceService {
     private final CandidateFactRepository candidateFactRepository;
     private final com.syndicate.transaction.TransactionService transactionService;
     private final AuditService auditService;
+    private final UploadValidator uploadValidator;
 
     public EvidenceService(EvidenceRepository evidenceRepository, WorkstreamService workstreamService,
                             FileStorageService fileStorageService, JobQueue jobQueue,
                             PageImageCache pageImageCache, CandidateFactRepository candidateFactRepository,
                             com.syndicate.transaction.TransactionService transactionService,
-                            AuditService auditService) {
+                            AuditService auditService, UploadValidator uploadValidator) {
         this.evidenceRepository = evidenceRepository;
         this.workstreamService = workstreamService;
         this.fileStorageService = fileStorageService;
@@ -53,6 +54,7 @@ public class EvidenceService {
         this.candidateFactRepository = candidateFactRepository;
         this.transactionService = transactionService;
         this.auditService = auditService;
+        this.uploadValidator = uploadValidator;
     }
 
     @Transactional
@@ -60,6 +62,7 @@ public class EvidenceService {
         workstreamService.requireAccess(workstreamId, caller.getId());
         Workstream workstream = workstreamService.findWorkstream(workstreamId);
         byte[] content = readContent(file);
+        uploadValidator.validate(originalName(file), content);
         String sha256 = ChecksumUtil.sha256Hex(content);
         UUID transactionId = workstream.getTransaction().getId();
         evidenceRepository.findFirstByWorkstreamTransactionIdAndFileSha256AndRetentionStateNot(
@@ -91,6 +94,7 @@ public class EvidenceService {
             throw new ConflictException("EVIDENCE_NOT_ACTIVE", "Archived evidence cannot be revised");
         }
         byte[] content = readContent(file);
+        uploadValidator.validate(originalName(file), content);
         String sha256 = ChecksumUtil.sha256Hex(content);
         if (sha256.equals(parent.getFileSha256())) {
             throw new ConflictException("DUPLICATE_EVIDENCE", "The new version is byte-identical to the current one");

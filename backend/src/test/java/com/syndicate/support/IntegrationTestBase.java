@@ -21,8 +21,11 @@ public abstract class IntegrationTestBase {
     }
 
     @DynamicPropertySource
-    static void storage(DynamicPropertyRegistry registry) {
+    static void testEnvironment(DynamicPropertyRegistry registry) {
         registry.add("syndicate.storage.upload-dir",
                 () -> System.getProperty("java.io.tmpdir") + "/syndicate-it-uploads");
+        // Tests create many accounts from one address. Sign-in keeps its real limit so the
+        // throttle is exercised as configured.
+        registry.add("syndicate.rate-limit.sign-up", () -> 10_000);
     }
 }
