@@ -1,4 +1,10 @@
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&display=swap');
+/* The typeface ships with the app: no third-party request, and it works behind a strict
+   content policy, offline, and without telling anyone else who is using this. */
+@import '@fontsource/jetbrains-mono/400.css';
+@import '@fontsource/jetbrains-mono/500.css';
+@import '@fontsource/jetbrains-mono/600.css';
+@import '@fontsource/jetbrains-mono/700.css';
+@import '@fontsource/jetbrains-mono/800.css';
 
 :root {
   --bg: #050505;
