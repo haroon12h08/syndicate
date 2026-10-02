@@ -83,12 +83,16 @@ export default function TransactionDetailPage() {
 
   async function load() {
     try {
-      const [txn, members, ws, invites] = await Promise.all([
+      const [txn, members, ws] = await Promise.all([
         transactionsApi.getTransaction(id),
         transactionsApi.listMemberships(id),
         workstreamsApi.listWorkstreams(id),
-        invitationsApi.listTransactionInvitations(id).catch(() => []),
       ]);
+      // Invitations and sign-off are the lead roles' business; nobody else is asked to look,
+      // so nobody else asks for them either.
+      const mine = members.find((m) => m.user.id === user?.id);
+      const leads = mine && SIGNER_ROLES.includes(mine.role);
+      const invites = leads ? await invitationsApi.listTransactionInvitations(id).catch(() => []) : [];
       readinessApi.getReadiness(id).then(setReadiness).catch(() => setReadiness(null));
       tasksApi.listTasks(id).then(setTasks).catch(() => setTasks([]));
       drhpApi.listDisclosures(id).then(setDisclosures).catch(() => setDisclosures([]));
@@ -103,7 +107,7 @@ export default function TransactionDetailPage() {
       setMemberships(members);
       setWorkstreams(ws);
       setInvitations(invites);
-      if (txn.status === 'DRAFT') {
+      if (txn.status === 'DRAFT' && leads) {
         invitationsApi.getApprovalStatus(id, 'DRAFT_TO_ACTIVE').then(setApprovalStatus).catch(() => setApprovalStatus(null));
       } else {
         setApprovalStatus(null);
@@ -265,6 +269,9 @@ export default function TransactionDetailPage() {
         toast.error(`Compilation refused — ${result.findings.length} blocking issue(s)`);
       }
       setDisclosures(await drhpApi.listDisclosures(id));
+      // compiling changes what the Filing tab can offer, so refresh it with the same action
+      filingApi.getFilingStatus(id).then(setFiling).catch(() => {});
+      workbenchApi.getWorkbench(id).then(setWorkbench).catch(() => {});
     } catch (err) {
       setError(err.message);
     } finally {

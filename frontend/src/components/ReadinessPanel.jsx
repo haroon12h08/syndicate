@@ -2,18 +2,6 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { humanize } from '../constants';
 
-const STATE_LABELS = {
-  READY_FOR_FILING: 'Ready for filing',
-  CONDITIONALLY_READY: 'Conditionally ready',
-  NOT_READY: 'Not ready',
-};
-
-function stateClass(state) {
-  if (state === 'READY_FOR_FILING') return 'readiness-gauge ready';
-  if (state === 'CONDITIONALLY_READY') return 'readiness-gauge conditional';
-  return 'readiness-gauge blocked';
-}
-
 function ruleStatusClass(status) {
   if (status === 'PASSED') return 'badge badge-complete';
   if (status === 'FAILED') return 'badge badge-failed';
@@ -27,8 +15,7 @@ export default function ReadinessPanel({ readiness, onEvaluate, evaluating }) {
 
   if (!readiness) return null;
 
-  const { state, rulesTotal, rulesPassed, rulesFailed, rulesMissingEvidence, lastEvaluatedAt } = readiness;
-  const pct = rulesTotal > 0 ? Math.round((rulesPassed / rulesTotal) * 100) : 0;
+  const { rulesTotal, rulesPassed, rulesFailed, rulesMissingEvidence, lastEvaluatedAt } = readiness;
 
   return (
     <section className="readiness-panel">
@@ -39,18 +26,13 @@ export default function ReadinessPanel({ readiness, onEvaluate, evaluating }) {
         </button>
       </div>
 
-      <div className={stateClass(state)}>
-        <div className="readiness-gauge-state">{STATE_LABELS[state] || humanize(state)}</div>
-        <div className="readiness-gauge-bar">
-          <span style={{ width: `${pct}%` }} />
-        </div>
-        <div className="readiness-gauge-meta">
-          {rulesPassed}/{rulesTotal} rules satisfied
-          {rulesFailed > 0 && <> · {rulesFailed} failing</>}
-          {rulesMissingEvidence > 0 && <> · {rulesMissingEvidence} awaiting evidence</>}
-          {lastEvaluatedAt && <> · evaluated {new Date(lastEvaluatedAt).toLocaleString()}</>}
-        </div>
-      </div>
+      <p className="hint">
+        Deterministic checks configured for this transaction type, evaluated against its verified
+        facts. {rulesPassed} of {rulesTotal} satisfied
+        {rulesFailed > 0 ? `, ${rulesFailed} failing` : ''}
+        {rulesMissingEvidence > 0 ? `, ${rulesMissingEvidence} awaiting facts` : ''}.
+        {lastEvaluatedAt && ` Last run ${new Date(lastEvaluatedAt).toLocaleString()}.`}
+      </p>
 
       {rulesTotal === 0 && (
         <p className="hint">No rules have been evaluated yet. Run an evaluation to assess this transaction.</p>

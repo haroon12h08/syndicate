@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.EnumMap;
 import java.util.EnumSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -71,7 +72,42 @@ public class PermissionService {
     public void requireTransactionPermission(UUID transactionId, UUID userId, Permission permission) {
         TransactionRole role = requireTransactionMembershipRole(transactionId, userId);
         if (!TRANSACTION_ROLE_PERMISSIONS.getOrDefault(role, Set.of()).contains(permission)) {
-            throw new ForbiddenException("Your role (" + role + ") does not permit this action");
+            throw new ForbiddenException(describe(permission) + " Your role on this transaction is "
+                    + humanise(role) + ".");
         }
+    }
+
+    /** Who can do this, in the words a transaction team uses. A refusal should name the way forward. */
+    private static String describe(Permission permission) {
+        String who = rolesWith(permission).stream()
+                .map(PermissionService::humanise)
+                .reduce((a, b) -> a + " or " + b)
+                .orElse("nobody on this transaction");
+        return switch (permission) {
+            case FACT_VERIFY_FINANCIAL -> "Verifying a financial fact is for " + who + ".";
+            case CONFLICT_RESOLVE -> "Choosing between conflicting values is for " + who + ".";
+            case TRANSACTION_MEMBERSHIP_MANAGE -> "Adding people to this transaction is for " + who + ".";
+            case TRANSACTION_INVITATION_SEND -> "Inviting organizations is for " + who + ".";
+            case TRANSACTION_STATUS_TRANSITION -> "Moving this transaction forward is for " + who + ".";
+            case ISSUE_RESOLVE_LITIGATION -> "Resolving a litigation issue is for " + who + ".";
+            default -> "This action is for " + who + ".";
+        };
+    }
+
+    public static List<TransactionRole> rolesWith(Permission permission) {
+        return TRANSACTION_ROLE_PERMISSIONS.entrySet().stream()
+                .filter(e -> e.getValue().contains(permission))
+                .map(Map.Entry::getKey)
+                .toList();
+    }
+
+    private static String humanise(TransactionRole role) {
+        String[] words = role.name().toLowerCase(java.util.Locale.ROOT).split("_");
+        StringBuilder text = new StringBuilder();
+        for (String word : words) {
+            text.append(text.isEmpty() ? "" : " ")
+                .append(Character.toUpperCase(word.charAt(0))).append(word.substring(1));
+        }
+        return text.toString();
     }
 }

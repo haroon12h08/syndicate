@@ -1637,3 +1637,6 @@ a.stat-tile:hover { border-color: #4a4a4a; }
 
 .start-card .inline-form { gap: 0.5rem; }
 .start-card input { min-width: 22rem; flex: 1; }
+
+.fact-reviews { margin-top: 2rem; display: flex; flex-direction: column; gap: 0.75rem; }
+.fact-picker-list li button { color: var(--text); }

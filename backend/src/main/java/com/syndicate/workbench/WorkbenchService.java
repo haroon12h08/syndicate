@@ -13,12 +13,15 @@ import com.syndicate.evidence.EvidenceQuality;
 import com.syndicate.fact.Fact;
 import com.syndicate.fact.FactRepository;
 import com.syndicate.fact.FactStatus;
+import com.syndicate.permission.Permission;
+import com.syndicate.permission.PermissionService;
 import com.syndicate.regulatory.RuleEvaluation;
 import com.syndicate.regulatory.RuleEvaluationRepository;
 import com.syndicate.regulatory.RuleEvaluationStatus;
 import com.syndicate.review.ReviewService;
 import com.syndicate.review.dto.MissingReviewDto;
 import com.syndicate.transaction.TransactionService;
+import com.syndicate.workstream.WorkstreamType;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -123,14 +126,26 @@ public class WorkbenchService {
                         "Obtain and link adequate evidence", null));
             }
             if (fact.getStatus() != FactStatus.VERIFIED && !conflicted.contains(fact.getId())) {
+                // financial facts are verified by a restricted set of roles; say which
+                String owner = fact.getWorkstream().getType() == WorkstreamType.FINANCIAL_DUE_DILIGENCE
+                        ? PermissionService.rolesWith(Permission.FACT_VERIFY_FINANCIAL).stream()
+                                .map(Enum::name).findFirst().orElse(null)
+                        : null;
                 blockers.add(new BlockerDto("MATERIAL_FACT_UNVERIFIED", BlockerSeverity.BLOCKING, "FACT", fact.getId(),
                         title, fact.getMateriality() + " fact not yet verified",
-                        "Independent verification by someone other than its author", null));
+                        "Verification by someone other than the person who recorded it", owner));
             }
         }
 
+        if (current.isEmpty()) {
+            blockers.add(new BlockerDto("NOTHING_RECORDED", BlockerSeverity.CONDITIONAL, "TRANSACTION",
+                    transactionId, "Nothing has been recorded yet",
+                    "This transaction holds no facts about the company",
+                    "Upload the company's documents, then confirm what they establish", null));
+        }
+
         List<RuleEvaluation> evaluations = ruleEvaluationRepository.findByTransactionId(transactionId);
-        if (evaluations.isEmpty()) {
+        if (evaluations.isEmpty() && !current.isEmpty()) {
             blockers.add(new BlockerDto("RULES_NOT_EVALUATED", BlockerSeverity.CONDITIONAL, "TRANSACTION",
                     transactionId, "Configured rules have not been evaluated",
                     "No rule evaluation has been run for this transaction", "Run readiness evaluation", null));

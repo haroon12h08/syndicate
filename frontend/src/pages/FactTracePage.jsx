@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import * as factsApi from '../api/facts';
 import * as evidenceApi from '../api/evidence';
 import { humanize } from '../constants';
+import FactReviews from '../components/FactReviews';
 
 export default function FactTracePage() {
   const { id } = useParams();
@@ -112,6 +113,13 @@ export default function FactTracePage() {
         ))}
         {evidence.length === 0 && <li className="hint">No evidence linked to this fact.</li>}
       </ul>
+      <FactReviews
+        factId={fact.id}
+        factVersion={fact.version}
+        evidence={evidence}
+        onReviewed={() => factsApi.getFactTrace(id).then(setTrace).catch(() => {})}
+      />
+
     </div>
   );
 }

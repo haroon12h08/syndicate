@@ -94,8 +94,7 @@ export default function HomePage() {
         ))}
         {transactions.length === 0 && (
           <li className="empty-state">
-            <span>No transactions yet. Create a company first, then open a transaction on it.</span>
-            <Link to="/companies"><button className="secondary">Go to companies</button></Link>
+            <span>No transactions yet. Start one above with the name of the company going public.</span>
           </li>
         )}
       </ul>
@@ -111,7 +110,7 @@ export default function HomePage() {
         {companies.length === 0 && (
           <li className="empty-state">
             <span>No companies yet.</span>
-            <Link to="/companies"><button className="secondary">Add a company</button></Link>
+
           </li>
         )}
       </ul>
