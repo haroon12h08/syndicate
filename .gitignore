@@ -19,3 +19,11 @@ frontend/.vite/
 *.swp
 .idea/
 .vscode/
+
+# Local run logs
+.run-logs/
+
+# The demo recording is a 12 MB binary; keep it out of git history.
+# Attach it to a release, or enable Git LFS if it should be versioned here.
+demo/*.webm
+demo/video/
