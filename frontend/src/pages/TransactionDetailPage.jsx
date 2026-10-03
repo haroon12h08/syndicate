@@ -457,7 +457,9 @@ export default function TransactionDetailPage() {
         ))}
       </nav>
 
-      {tab === 'overview' && approvalStatus && (
+      {/* Only while the deal is still being opened; after that the stage speaks for itself. */}
+      {tab === 'overview' && approvalStatus
+        && ['COLLECTING_DOCUMENTS', 'DILIGENCE'].includes(stage?.stage ?? 'COLLECTING_DOCUMENTS') && (
         <div className="detail-grid">
           <div>
             <strong>Approval to activate</strong>
