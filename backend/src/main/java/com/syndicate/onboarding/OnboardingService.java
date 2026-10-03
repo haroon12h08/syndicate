@@ -48,18 +48,21 @@ public class OnboardingService {
     private final WorkstreamRepository workstreamRepository;
     private final OrganizationMembershipRepository organizationMembershipRepository;
     private final AuditService auditService;
+    private final com.syndicate.diligence.DiligenceQuestionSeeder diligenceQuestionSeeder;
 
     public OnboardingService(CompanyRepository companyRepository, TransactionRepository transactionRepository,
                              TransactionMembershipRepository membershipRepository,
                              WorkstreamRepository workstreamRepository,
                              OrganizationMembershipRepository organizationMembershipRepository,
-                             AuditService auditService) {
+                             AuditService auditService,
+                             com.syndicate.diligence.DiligenceQuestionSeeder diligenceQuestionSeeder) {
         this.companyRepository = companyRepository;
         this.transactionRepository = transactionRepository;
         this.membershipRepository = membershipRepository;
         this.workstreamRepository = workstreamRepository;
         this.organizationMembershipRepository = organizationMembershipRepository;
         this.auditService = auditService;
+        this.diligenceQuestionSeeder = diligenceQuestionSeeder;
     }
 
     @Transactional
@@ -82,6 +85,7 @@ public class OnboardingService {
         for (WorkstreamType area : STANDARD_AREAS) {
             workstreamRepository.save(new Workstream(transaction, area, null));
         }
+        diligenceQuestionSeeder.seed(transaction.getId(), TransactionType.SME_IPO.name());
 
         auditService.record(transaction.getId(), caller, AuditAction.TRANSACTION_STATUS_CHANGED, "Transaction",
                 transaction.getId(), "Opened " + transaction.getName(), null, transaction.getStatus().name(), null);

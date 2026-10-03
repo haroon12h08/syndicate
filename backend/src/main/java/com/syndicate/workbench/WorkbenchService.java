@@ -1,6 +1,9 @@
 package com.syndicate.workbench;
 
 import com.syndicate.conflict.ConflictStatus;
+import com.syndicate.diligence.DiligenceQuestion;
+import com.syndicate.diligence.DiligenceQuestionRepository;
+import com.syndicate.diligence.DiligenceStatus;
 import com.syndicate.conflict.FactConflict;
 import com.syndicate.conflict.FactConflictRepository;
 import com.syndicate.drhp.Disclosure;
@@ -13,6 +16,7 @@ import com.syndicate.evidence.EvidenceQuality;
 import com.syndicate.fact.Fact;
 import com.syndicate.fact.FactRepository;
 import com.syndicate.fact.FactStatus;
+import com.syndicate.issue.IssueSeverity;
 import com.syndicate.permission.Permission;
 import com.syndicate.permission.PermissionService;
 import com.syndicate.regulatory.RuleEvaluation;
@@ -53,11 +57,12 @@ public class WorkbenchService {
     private final DisclosureRepository disclosureRepository;
     private final DrhpDocumentRepository drhpRepository;
     private final ReviewService reviewService;
+    private final DiligenceQuestionRepository questionRepository;
 
     public WorkbenchService(TransactionService transactionService, FactRepository factRepository,
                             FactConflictRepository conflictRepository, RuleEvaluationRepository ruleEvaluationRepository,
                             DisclosureRepository disclosureRepository, DrhpDocumentRepository drhpRepository,
-                            ReviewService reviewService) {
+                            ReviewService reviewService, DiligenceQuestionRepository questionRepository) {
         this.transactionService = transactionService;
         this.factRepository = factRepository;
         this.conflictRepository = conflictRepository;
@@ -65,6 +70,7 @@ public class WorkbenchService {
         this.disclosureRepository = disclosureRepository;
         this.drhpRepository = drhpRepository;
         this.reviewService = reviewService;
+        this.questionRepository = questionRepository;
     }
 
     @Transactional(readOnly = true)
@@ -179,6 +185,26 @@ public class WorkbenchService {
                         doc.getId(), "DRHP v" + doc.getVersion() + " no longer matches the record",
                         doc.getInvalidatedReason(), "Recompile after the change is reviewed", null)));
 
+        for (DiligenceQuestion question : questionRepository
+                .findByTransactionIdOrderByWorkstreamTypeAscCreatedAtAsc(transactionId)) {
+            if (question.getStatus() == DiligenceStatus.OPEN) {
+                boolean blocking = question.getSeverity() == IssueSeverity.BLOCKING;
+                blockers.add(new BlockerDto("DILIGENCE_QUESTION_OPEN",
+                        blocking ? BlockerSeverity.BLOCKING : BlockerSeverity.CONDITIONAL,
+                        "DILIGENCE_QUESTION", question.getId(), question.getQuestion(),
+                        "Unanswered " + humanArea(question.getWorkstreamType()) + " question",
+                        "Answer it, with the facts or documents it rests on",
+                        question.getOwner() != null ? null : null));
+            } else if (question.getStatus() == DiligenceStatus.ANSWERED) {
+                blockers.add(new BlockerDto("DILIGENCE_ANSWER_UNACCEPTED", BlockerSeverity.AWAITING_REVIEW,
+                        "DILIGENCE_QUESTION", question.getId(), question.getQuestion(),
+                        "Answered by " + (question.getAnsweredBy() != null
+                                ? question.getAnsweredBy().getFullName() : "someone")
+                                + ", not yet accepted by anyone else",
+                        "Read the answer and accept it", null));
+            }
+        }
+
         for (MissingReviewDto missing : reviewService.missingReviews(transactionId)) {
             blockers.add(new BlockerDto("REVIEW_MISSING", BlockerSeverity.AWAITING_REVIEW, "FACT", missing.factId(),
                     missing.label(), missing.materiality() + " fact lacks a current review from "
@@ -194,6 +220,10 @@ public class WorkbenchService {
         return new WorkbenchDto(readiness, explain(readiness, counts), counts, blockers,
                 new CoverageDto(material, verified, withEvidence, withAcceptable, inConflict, stale, disclosures.size()),
                 Instant.now());
+    }
+
+    private static String humanArea(WorkstreamType type) {
+        return type.name().toLowerCase(java.util.Locale.ROOT).replace('_', ' ');
     }
 
     static DerivedReadiness derive(Map<BlockerSeverity, Long> counts) {

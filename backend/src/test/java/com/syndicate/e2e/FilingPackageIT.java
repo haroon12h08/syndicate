@@ -48,6 +48,8 @@ class FilingPackageIT extends IntegrationTestBase {
         establish("issuer.ebitda", "EBITDA", "51000000", "FY2025");
         establish("issuer.ebitda", "EBITDA", "43000000", "FY2024");
         establish("issuer.licence_expiry", "Factory licence expiry", "4102444800000");
+        tx.settleBlockingQuestions(api, api.uploadEvidence(banker, tx.workstreamId(), "diligence-file.txt",
+                ("diligence " + UUID.randomUUID()).getBytes(StandardCharsets.UTF_8), "OTHER"));
         api.create(banker, "/api/transactions/" + tx.transactionId() + "/disclosures",
                 Map.of("sectionCode", "CAPITAL_STRUCTURE", "title", "Capital structure",
                         "bodyTemplate", "Post-issue paid-up capital is {{fact:issue.post_issue_paid_up_capital}}."));

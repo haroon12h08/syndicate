@@ -20,6 +20,11 @@ public class TestApi {
         this.rest = rest;
     }
 
+    /** For the few calls that need a list response. */
+    public TestRestTemplate rest() {
+        return rest;
+    }
+
     public record Actor(String token, UUID userId, UUID organizationId, String email) {
     }
 

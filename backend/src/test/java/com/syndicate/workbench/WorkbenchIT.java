@@ -38,6 +38,9 @@ class WorkbenchIT extends IntegrationTestBase {
                 Map.of("factKey", "issuer.authorized_capital", "label", "Authorised capital", "value", "15",
                         "unit", "INR crore")).getBody();
 
+        tx.settleBlockingQuestions(api, api.uploadEvidence(tx.lead(), tx.workstreamId(), "diligence.txt",
+                ("diligence " + UUID.randomUUID()).getBytes(StandardCharsets.UTF_8), "OTHER"));
+
         Map wb = api.call(tx.lead(), HttpMethod.GET, path, null).getBody();
         assertThat(wb.get("readiness")).isEqualTo("NOT_READY");
         assertThat(types(wb)).contains("MATERIAL_FACT_WITHOUT_EVIDENCE", "MATERIAL_FACT_UNVERIFIED", "REVIEW_MISSING");
@@ -52,9 +55,9 @@ class WorkbenchIT extends IntegrationTestBase {
                 Map.of("decision", "APPROVED_FOR_USE"));
 
         wb = api.call(tx.lead(), HttpMethod.GET, path, null).getBody();
-        // the fact is settled; only rule inputs the transaction has not recorded yet remain
+        // the fact is settled; what remains is rule inputs and answers awaiting a second reader
         assertThat((List<Map>) wb.get("blockers")).isNotEmpty()
-                .allSatisfy(b -> assertThat(b.get("severity")).isEqualTo("CONDITIONAL"));
+                .allSatisfy(b -> assertThat(b.get("severity")).isIn("CONDITIONAL", "AWAITING_REVIEW"));
         assertThat(wb.get("readiness")).isEqualTo("CONDITIONALLY_READY");
 
         UUID disclosureId = api.create(tx.lead(), "/api/transactions/" + tx.transactionId() + "/disclosures",

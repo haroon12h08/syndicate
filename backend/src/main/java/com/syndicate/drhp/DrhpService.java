@@ -14,6 +14,7 @@ import com.syndicate.fact.Fact;
 import com.syndicate.provenance.ProvenanceService;
 import com.syndicate.fact.FactRepository;
 import com.syndicate.fact.FactStatus;
+import com.syndicate.issue.IssueSeverity;
 import com.syndicate.regulatory.RuleEvaluation;
 import com.syndicate.regulatory.RuleEvaluationRepository;
 import com.syndicate.regulatory.RuleEvaluationStatus;
@@ -37,6 +38,7 @@ public class DrhpService {
     private final TransactionService transactionService;
     private final DrhpCompiler compiler;
     private final ProvenanceService provenanceService;
+    private final com.syndicate.diligence.DiligenceQuestionRepository diligenceQuestionRepository;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public DrhpService(DisclosureRepository disclosureRepository,
@@ -45,7 +47,8 @@ public class DrhpService {
                         RuleEvaluationRepository ruleEvaluationRepository,
                         TransactionService transactionService,
                         DrhpCompiler compiler,
-                        ProvenanceService provenanceService) {
+                        ProvenanceService provenanceService,
+                       com.syndicate.diligence.DiligenceQuestionRepository diligenceQuestionRepository) {
         this.disclosureRepository = disclosureRepository;
         this.drhpRepository = drhpRepository;
         this.factRepository = factRepository;
@@ -53,6 +56,7 @@ public class DrhpService {
         this.transactionService = transactionService;
         this.compiler = compiler;
         this.provenanceService = provenanceService;
+        this.diligenceQuestionRepository = diligenceQuestionRepository;
     }
 
     @Transactional(readOnly = true)
@@ -170,6 +174,9 @@ public class DrhpService {
 
         List<LintFinding> findings = new ArrayList<>(result.findings());
         findings.addAll(0, readinessFindings(transactionId));
+        if (mode == CompileMode.FINAL_FILING) {
+            findings.addAll(0, unansweredDiligenceFindings(transactionId));
+        }
 
         if (!findings.isEmpty()) {
             return new CompileResultDto(false, null, findings, result.sections());
@@ -191,6 +198,20 @@ public class DrhpService {
         }
 
         return new CompileResultDto(true, toDto(document), List.of(), result.sections());
+    }
+
+    /**
+     * A filing copy cannot be built over questions the team has not answered. Draft compiles are
+     * left alone: they are how a team sees where it stands.
+     */
+    private List<LintFinding> unansweredDiligenceFindings(UUID transactionId) {
+        return diligenceQuestionRepository.findByTransactionIdOrderByWorkstreamTypeAscCreatedAtAsc(transactionId)
+                .stream()
+                .filter(q -> q.getStatus() == com.syndicate.diligence.DiligenceStatus.OPEN)
+                .filter(q -> q.getSeverity() == IssueSeverity.BLOCKING)
+                .map(q -> new LintFinding("DILIGENCE_QUESTION_OPEN", q.getWorkstreamType().name(), null,
+                        "Unanswered: " + q.getQuestion()))
+                .toList();
     }
 
     /** The readiness engine is a compile gate: a failing SEBI rule blocks the filing document. */

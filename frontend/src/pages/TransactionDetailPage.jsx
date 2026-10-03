@@ -13,6 +13,7 @@ import * as evidenceApi from '../api/evidence';
 import * as conflictsApi from '../api/conflicts';
 import * as workbenchApi from '../api/workbench';
 import * as filingApi from '../api/filing';
+import * as diligenceApi from '../api/diligence';
 import * as factsApi from '../api/facts';
 import ReadinessPanel from '../components/ReadinessPanel';
 import TaskBoard from '../components/TaskBoard';
@@ -21,6 +22,7 @@ import DocumentsPanel from '../components/DocumentsPanel';
 import ConflictsPanel from '../components/ConflictsPanel';
 import WorkbenchPanel from '../components/WorkbenchPanel';
 import FilingPanel from '../components/FilingPanel';
+import DiligencePanel from '../components/DiligencePanel';
 import AuditTimeline from '../components/AuditTimeline';
 import ProvenanceDrawer from '../components/ProvenanceDrawer';
 import { TRANSACTION_ROLES, TRANSACTION_STATUSES, WORKSTREAM_TYPES, humanize } from '../constants';
@@ -30,6 +32,7 @@ const SIGNER_ROLES = ['ISSUER_ADMIN', 'LEAD_BANKER'];
 const TABS = [
   { key: 'overview', label: 'Overview' },
   { key: 'documents', label: 'Documents' },
+  { key: 'diligence', label: 'Diligence' },
   { key: 'conflicts', label: 'Conflicts' },
   { key: 'tasks', label: 'Tasks' },
   { key: 'drhp', label: 'DRHP' },
@@ -69,6 +72,7 @@ export default function TransactionDetailPage() {
   const [workbench, setWorkbench] = useState(null);
   const [filing, setFiling] = useState(null);
   const [facts, setFacts] = useState([]);
+  const [questions, setQuestions] = useState([]);
   const [provenance, setProvenance] = useState(null);
   const [error, setError] = useState(null);
 
@@ -103,6 +107,7 @@ export default function TransactionDetailPage() {
       workbenchApi.getWorkbench(id).then(setWorkbench).catch(() => setWorkbench(null));
       filingApi.getFilingStatus(id).then(setFiling).catch(() => setFiling(null));
       factsApi.listTransactionFacts(id).then(setFacts).catch(() => setFacts([]));
+      diligenceApi.listQuestions(id).then(setQuestions).catch(() => setQuestions([]));
       setTransaction(txn);
       setMemberships(members);
       setWorkstreams(ws);
@@ -437,6 +442,9 @@ export default function TransactionDetailPage() {
           >
             {t.label}
             {t.key === 'documents' && evidence.length > 0 && <span className="tab-count">{evidence.length}</span>}
+            {t.key === 'diligence' && questions.some((q) => q.status === 'OPEN') && (
+              <span className="tab-count">{questions.filter((q) => q.status === 'OPEN').length}</span>
+            )}
             {t.key === 'conflicts' && conflicts.some((c) => c.status === 'OPEN') && (
               <span className="tab-count">{conflicts.filter((c) => c.status === 'OPEN').length}</span>
             )}
@@ -540,6 +548,25 @@ export default function TransactionDetailPage() {
         onUpdateDisclosure={handleUpdateDisclosure}
         onInspectProvenance={handleInspectProvenance}
       />
+      )}
+
+      {tab === 'diligence' && (
+        <DiligencePanel
+          questions={questions}
+          facts={facts}
+          evidence={evidence}
+          currentUserId={user?.id}
+          onAnswer={async (questionId, payload) => {
+            await diligenceApi.answerQuestion(questionId, payload);
+            toast.success('Answer recorded');
+            await load();
+          }}
+          onAccept={async (questionId) => {
+            await diligenceApi.acceptAnswer(questionId);
+            toast.success('Answer accepted');
+            await load();
+          }}
+        />
       )}
 
       {tab === 'conflicts' && <ConflictsPanel conflicts={conflicts} onResolve={handleResolveConflict} />}

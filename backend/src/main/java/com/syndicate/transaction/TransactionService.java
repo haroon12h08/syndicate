@@ -44,6 +44,7 @@ public class TransactionService {
     private final OrganizationMembershipRepository organizationMembershipRepository;
     private final UserRepository userRepository;
     private final PermissionService permissionService;
+    private final com.syndicate.diligence.DiligenceQuestionSeeder diligenceQuestionSeeder;
     private final InvitationService invitationService;
     private final TransactionApprovalSignatureRepository approvalSignatureRepository;
     private final TransactionDeletionService deletionService;
@@ -57,7 +58,8 @@ public class TransactionService {
                                PermissionService permissionService,
                                InvitationService invitationService,
                                TransactionApprovalSignatureRepository approvalSignatureRepository,
-                               TransactionDeletionService deletionService) {
+                               TransactionDeletionService deletionService,
+                              com.syndicate.diligence.DiligenceQuestionSeeder diligenceQuestionSeeder) {
         this.transactionRepository = transactionRepository;
         this.membershipRepository = membershipRepository;
         this.companyService = companyService;
@@ -65,6 +67,7 @@ public class TransactionService {
         this.organizationMembershipRepository = organizationMembershipRepository;
         this.userRepository = userRepository;
         this.permissionService = permissionService;
+        this.diligenceQuestionSeeder = diligenceQuestionSeeder;
         this.invitationService = invitationService;
         this.approvalSignatureRepository = approvalSignatureRepository;
         this.deletionService = deletionService;
@@ -84,6 +87,8 @@ public class TransactionService {
         Transaction transaction = transactionRepository.save(
                 new Transaction(company, leadOrganization, request.type(), request.name()));
         membershipRepository.save(new TransactionMembership(transaction, leadOrganization, caller, request.creatorRole()));
+        // every transaction starts with the questions its type has to answer
+        diligenceQuestionSeeder.seed(transaction.getId(), request.type().name());
         return TransactionDto.from(transaction);
     }
 

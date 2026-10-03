@@ -113,7 +113,11 @@ class GoldenPathIT extends IntegrationTestBase {
         assertThat(readiness.get("rulesFailed")).isEqualTo(0);
         assertThat(readiness.get("rulesMissingEvidence")).as(String.valueOf(readiness)).isEqualTo(0);
 
-        // 12. a disclosure that quotes the verified facts
+        // 12. the standard diligence questions are answered before a filing copy is built
+        tx.settleBlockingQuestions(api, api.uploadEvidence(banker, tx.workstreamId(), "diligence-file.txt",
+                ("diligence " + UUID.randomUUID()).getBytes(StandardCharsets.UTF_8), "OTHER"));
+
+        // a disclosure that quotes the verified facts
         UUID disclosureId = UUID.fromString((String) post(banker,
                 "/api/transactions/" + tx.transactionId() + "/disclosures",
                 Map.of("sectionCode", "CAPITAL_STRUCTURE", "title", "Capital structure and results",
