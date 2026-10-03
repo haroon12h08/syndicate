@@ -14,6 +14,8 @@ import * as conflictsApi from '../api/conflicts';
 import * as workbenchApi from '../api/workbench';
 import * as filingApi from '../api/filing';
 import * as diligenceApi from '../api/diligence';
+import * as observationsApi from '../api/observations';
+import * as lifecycleApi from '../api/lifecycle';
 import * as factsApi from '../api/facts';
 import ReadinessPanel from '../components/ReadinessPanel';
 import TaskBoard from '../components/TaskBoard';
@@ -23,9 +25,11 @@ import ConflictsPanel from '../components/ConflictsPanel';
 import WorkbenchPanel from '../components/WorkbenchPanel';
 import FilingPanel from '../components/FilingPanel';
 import DiligencePanel from '../components/DiligencePanel';
+import ObservationsPanel from '../components/ObservationsPanel';
+import StageHeader from '../components/StageHeader';
 import AuditTimeline from '../components/AuditTimeline';
 import ProvenanceDrawer from '../components/ProvenanceDrawer';
-import { TRANSACTION_ROLES, TRANSACTION_STATUSES, WORKSTREAM_TYPES, humanize } from '../constants';
+import { TRANSACTION_ROLES, WORKSTREAM_TYPES, humanize } from '../constants';
 
 const SIGNER_ROLES = ['ISSUER_ADMIN', 'LEAD_BANKER'];
 
@@ -37,6 +41,7 @@ const TABS = [
   { key: 'tasks', label: 'Tasks' },
   { key: 'drhp', label: 'DRHP' },
   { key: 'filing', label: 'Filing' },
+  { key: 'observations', label: 'Observations' },
   { key: 'team', label: 'Team' },
   { key: 'audit', label: 'Audit' },
 ];
@@ -73,6 +78,8 @@ export default function TransactionDetailPage() {
   const [filing, setFiling] = useState(null);
   const [facts, setFacts] = useState([]);
   const [questions, setQuestions] = useState([]);
+  const [observations, setObservations] = useState([]);
+  const [stage, setStage] = useState(null);
   const [provenance, setProvenance] = useState(null);
   const [error, setError] = useState(null);
 
@@ -108,6 +115,8 @@ export default function TransactionDetailPage() {
       filingApi.getFilingStatus(id).then(setFiling).catch(() => setFiling(null));
       factsApi.listTransactionFacts(id).then(setFacts).catch(() => setFacts([]));
       diligenceApi.listQuestions(id).then(setQuestions).catch(() => setQuestions([]));
+      observationsApi.listObservations(id).then(setObservations).catch(() => setObservations([]));
+      lifecycleApi.getStage(id).then(setStage).catch(() => setStage(null));
       setTransaction(txn);
       setMemberships(members);
       setWorkstreams(ws);
@@ -321,16 +330,6 @@ export default function TransactionDetailPage() {
     }
   }
 
-  async function handleStatusChange(status) {
-    setError(null);
-    try {
-      await transactionsApi.updateTransactionStatus(id, { status });
-      await load();
-    } catch (err) {
-      setError(err.message);
-    }
-  }
-
   async function handleSignApproval() {
     setError(null);
     try {
@@ -422,15 +421,17 @@ export default function TransactionDetailPage() {
         <div><strong>Company</strong><span>{transaction.companyName}</span></div>
         <div><strong>Lead organization</strong><span><Link to={`/organizations/${transaction.leadOrganizationId}`}>{transaction.leadOrganizationName}</Link></span></div>
         <div><strong>Type</strong><span>{humanize(transaction.type)}</span></div>
-        <div>
-          <strong>Status</strong>
-          <select value={transaction.status} onChange={(e) => handleStatusChange(e.target.value)}>
-            {TRANSACTION_STATUSES.map((s) => (
-              <option key={s} value={s}>{humanize(s)}</option>
-            ))}
-          </select>
-        </div>
+
       </div>
+      <StageHeader
+        stage={stage}
+        onRecord={async (type, payload) => {
+          await lifecycleApi.recordMilestone(id, type, payload);
+          toast.success(type === 'FILED' ? 'Filing recorded' : 'Listing recorded');
+          await load();
+        }}
+      />
+
       {error && <div className="error-banner">{error}</div>}
 
       <nav className="tab-strip">
@@ -442,6 +443,9 @@ export default function TransactionDetailPage() {
           >
             {t.label}
             {t.key === 'documents' && evidence.length > 0 && <span className="tab-count">{evidence.length}</span>}
+            {t.key === 'observations' && observations.some((o) => o.status === 'OPEN') && (
+              <span className="tab-count">{observations.filter((o) => o.status === 'OPEN').length}</span>
+            )}
             {t.key === 'diligence' && questions.some((q) => q.status === 'OPEN') && (
               <span className="tab-count">{questions.filter((q) => q.status === 'OPEN').length}</span>
             )}
@@ -564,6 +568,38 @@ export default function TransactionDetailPage() {
           onAccept={async (questionId) => {
             await diligenceApi.acceptAnswer(questionId);
             toast.success('Answer accepted');
+            await load();
+          }}
+        />
+      )}
+
+      {tab === 'observations' && (
+        <ObservationsPanel
+          observations={observations}
+          facts={facts}
+          evidence={evidence}
+          currentUserId={user?.id}
+          onRecord={async (payload) => {
+            await observationsApi.recordObservation(id, payload);
+            toast.success('Observation recorded');
+            await load();
+          }}
+          onRespond={async (observationId, payload) => {
+            await observationsApi.respond(observationId, payload);
+            toast.success('Response saved');
+            await load();
+          }}
+          onApprove={async (observationId) => {
+            await observationsApi.approveResponse(observationId);
+            toast.success('Response approved');
+            await load();
+          }}
+          onSent={async (observationId) => {
+            await observationsApi.markSent(observationId);
+            await load();
+          }}
+          onClose={async (observationId) => {
+            await observationsApi.closeObservation(observationId);
             await load();
           }}
         />

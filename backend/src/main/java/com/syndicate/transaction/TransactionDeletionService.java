@@ -58,6 +58,8 @@ public class TransactionDeletionService {
                 "DELETE FROM fact_conflicts WHERE transaction_id = :id",
                 "DELETE FROM reviews WHERE transaction_id = :id",
                 "DELETE FROM diligence_questions WHERE transaction_id = :id",
+                "DELETE FROM regulatory_observations WHERE transaction_id = :id",
+                "DELETE FROM transaction_milestones WHERE transaction_id = :id",
                 "DELETE FROM issue_fact_link WHERE issue_id IN (SELECT i.id FROM issues i "
                         + "JOIN workstreams w ON i.workstream_id = w.id WHERE w.transaction_id = :id)",
                 "DELETE FROM issue_evidence_link WHERE issue_id IN (SELECT i.id FROM issues i "

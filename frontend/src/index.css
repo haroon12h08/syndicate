@@ -1659,3 +1659,15 @@ a.stat-tile:hover { border-color: #4a4a4a; }
 }
 
 .impact-notice ul { margin: 0; padding-left: 1.1rem; }
+
+.stage-header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.9rem 1.1rem;
+  margin: 1rem 0;
+}
+
+.stage-header > div:first-child { display: flex; flex-direction: column; gap: 0.25rem; }

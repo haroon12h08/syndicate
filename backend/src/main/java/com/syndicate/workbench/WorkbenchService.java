@@ -16,6 +16,8 @@ import com.syndicate.evidence.EvidenceQuality;
 import com.syndicate.fact.Fact;
 import com.syndicate.fact.FactRepository;
 import com.syndicate.fact.FactStatus;
+import com.syndicate.observation.ObservationStatus;
+import com.syndicate.observation.RegulatoryObservation;
 import com.syndicate.issue.IssueSeverity;
 import com.syndicate.permission.Permission;
 import com.syndicate.permission.PermissionService;
@@ -58,11 +60,13 @@ public class WorkbenchService {
     private final DrhpDocumentRepository drhpRepository;
     private final ReviewService reviewService;
     private final DiligenceQuestionRepository questionRepository;
+    private final com.syndicate.observation.RegulatoryObservationRepository observationRepository;
 
     public WorkbenchService(TransactionService transactionService, FactRepository factRepository,
                             FactConflictRepository conflictRepository, RuleEvaluationRepository ruleEvaluationRepository,
                             DisclosureRepository disclosureRepository, DrhpDocumentRepository drhpRepository,
-                            ReviewService reviewService, DiligenceQuestionRepository questionRepository) {
+                            ReviewService reviewService, DiligenceQuestionRepository questionRepository,
+                            com.syndicate.observation.RegulatoryObservationRepository observationRepository) {
         this.transactionService = transactionService;
         this.factRepository = factRepository;
         this.conflictRepository = conflictRepository;
@@ -71,6 +75,7 @@ public class WorkbenchService {
         this.drhpRepository = drhpRepository;
         this.reviewService = reviewService;
         this.questionRepository = questionRepository;
+        this.observationRepository = observationRepository;
     }
 
     @Transactional(readOnly = true)
@@ -203,6 +208,24 @@ public class WorkbenchService {
                                 + ", not yet accepted by anyone else",
                         "Read the answer and accept it", null));
             }
+        }
+
+        for (RegulatoryObservation observation : observationRepository.findByTransactionIdAndStatusIn(transactionId,
+                List.of(ObservationStatus.OPEN, ObservationStatus.RESPONSE_DRAFTED,
+                        ObservationStatus.RESPONSE_APPROVED))) {
+            BlockerSeverity severity = observation.getStatus() == ObservationStatus.OPEN
+                    ? BlockerSeverity.BLOCKING : BlockerSeverity.AWAITING_REVIEW;
+            String reason = switch (observation.getStatus()) {
+                case OPEN -> observation.getAuthority() + " is waiting for an answer"
+                        + (observation.getResponseDeadline() != null
+                        ? ", due " + observation.getResponseDeadline() : "");
+                case RESPONSE_DRAFTED -> "A response is drafted but nobody else has read it";
+                default -> "The response is approved but not recorded as sent";
+            };
+            blockers.add(new BlockerDto("REGULATORY_OBSERVATION", severity, "OBSERVATION", observation.getId(),
+                    observation.getObservation(), reason,
+                    observation.getStatus() == ObservationStatus.OPEN ? "Answer it, with what the answer rests on"
+                            : "Carry the response through to the authority", null));
         }
 
         for (MissingReviewDto missing : reviewService.missingReviews(transactionId)) {
