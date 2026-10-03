@@ -1,0 +1,70 @@
+[
+  {
+    "at": 0,
+    "label": "Scene 1 — the product, signing in"
+  },
+  {
+    "at": 6.456,
+    "label": "Scene 2 — home: one answer starts a deal"
+  },
+  {
+    "at": 12.754,
+    "label": "Scene 3 — the transaction and its stage"
+  },
+  {
+    "at": 21.536,
+    "label": "Scene 4 — the workbench: what stands in the way"
+  },
+  {
+    "at": 38.353,
+    "label": "Scene 5 — documents and extraction"
+  },
+  {
+    "at": 54.406,
+    "label": "Scene 6 — candidates extracted from the statement, awaiting a person"
+  },
+  {
+    "at": 75.785,
+    "label": "Scene 6b — the value, traced to the page it came from"
+  },
+  {
+    "at": 90.938,
+    "label": "Scene 7 — two sources disagree"
+  },
+  {
+    "at": 124.899,
+    "label": "Scene 8 — the diligence questions"
+  },
+  {
+    "at": 157.143,
+    "label": "Scene 9 — writing a disclosure from verified facts"
+  },
+  {
+    "at": 180.694,
+    "label": "Scene 10 — compiling the filing copy"
+  },
+  {
+    "at": 201.29,
+    "label": "Scene 10b — the provenance manifest"
+  },
+  {
+    "at": 214.673,
+    "label": "Scene 11 — approvals and the filing package"
+  },
+  {
+    "at": 245.963,
+    "label": "Scene 11b — what a change would now reach"
+  },
+  {
+    "at": 263.502,
+    "label": "Scene 12 — the audit trail"
+  },
+  {
+    "at": 281.133,
+    "label": "Scene 13 — where the deal now stands"
+  },
+  {
+    "at": 293.327,
+    "label": "end"
+  }
+]
