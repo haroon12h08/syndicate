@@ -283,9 +283,10 @@ export default function TransactionDetailPage() {
         toast.error(`Compilation refused — ${result.findings.length} blocking issue(s)`);
       }
       setDisclosures(await drhpApi.listDisclosures(id));
-      // compiling changes what the Filing tab can offer, so refresh it with the same action
+      // compiling moves the deal on, so everything that reads from it refreshes with the same action
       filingApi.getFilingStatus(id).then(setFiling).catch(() => {});
       workbenchApi.getWorkbench(id).then(setWorkbench).catch(() => {});
+      lifecycleApi.getStage(id).then(setStage).catch(() => {});
     } catch (err) {
       setError(err.message);
     } finally {
