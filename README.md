@@ -489,6 +489,7 @@ frontend/    React application, compiled into the backend image at build time
 demo/        Five-minute walkthrough: recorder, narration script, scene timings
 docs/
   assets/    Figures used in this report
+  design/    Design notes for individual subsystems
   plans/     The engineering plan this implementation follows
   spec/      Product and engineering specification (the "bible")
 start.sh     One command: build, migrate, run, verify

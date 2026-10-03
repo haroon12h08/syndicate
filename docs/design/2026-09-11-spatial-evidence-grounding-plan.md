@@ -1,6 +1,6 @@
 # Spatial Evidence Grounding & CandidateFact Extraction — Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> Implementation plan. Steps use checkbox (`- [ ]`) syntax so progress can be tracked task by task.
 
 **Goal:** Every evidence upload gets checksummed, spatially parsed (real PDF text-layer extraction or real Tesseract OCR), and run through a deterministic matcher that emits `CandidateFact` records anchored to a bounding box on a specific page — never a real `Fact` — enforcing Zero AI Authority. A human reviews each candidate against its rendered source page (with the box drawn on it) and explicitly Accepts (creating a real `Fact`) or Rejects it.
 
@@ -8,7 +8,7 @@
 
 **Tech Stack:** Spring Boot 3.3.4 / Java 17 (existing), Apache PDFBox 3.0.3 (new, PDF text-layer parsing + rendering), Tesseract 5.5.3 CLI (already installed on this host, invoked via `ProcessBuilder`), RabbitMQ 3 via Docker + Spring AMQP + Spring Retry (new), PostgreSQL/Flyway (existing), JUnit 5 + Mockito via `spring-boot-starter-test` (already a dependency, first real use in this repo).
 
-**Spec:** `docs/superpowers/specs/2026-09-11-spatial-evidence-grounding-design.md`
+**Spec:** `docs/design/2026-09-11-spatial-evidence-grounding-design.md`
 
 ## Global Constraints
 
@@ -3222,15 +3222,3 @@ git commit -m "feat(frontend): evidence processing status, checksum, and candida
 **Type consistency:** `DocumentToken`, `MatchedCandidate`, `PdfLayoutParser.PageResult`, `CandidateFactDto`, `AcceptCandidateFactRequest`/`RejectCandidateFactRequest` field names and types are used identically across every task that references them (cross-checked field-by-field while writing this plan).
 
 **Gaps found and fixed during this review:** none outstanding — the Y-axis coordinate risk (the one real ambiguity in this feature) was already resolved with a test-driven fallback in Task 3.
-
----
-
-## Execution Handoff
-
-Plan complete and saved to `docs/superpowers/plans/2026-09-11-spatial-evidence-grounding.md`. Two execution options:
-
-**1. Subagent-Driven (recommended)** - I dispatch a fresh subagent per task, review between tasks, fast iteration
-
-**2. Inline Execution** - Execute tasks in this session using executing-plans, batch execution with checkpoints
-
-**Which approach?**
