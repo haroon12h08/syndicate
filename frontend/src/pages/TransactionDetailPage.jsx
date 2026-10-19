@@ -612,6 +612,7 @@ export default function TransactionDetailPage() {
 
       {tab === 'filing' && (
         <FilingPanel
+          transactionId={id}
           filing={filing}
           currentRole={myMembership?.role}
           onApprove={async (documentId) => {

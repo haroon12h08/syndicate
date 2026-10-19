@@ -14,6 +14,7 @@ import com.syndicate.evidence.Evidence;
 import com.syndicate.evidence.FileStorageService;
 import com.syndicate.fact.Fact;
 import com.syndicate.filing.dto.ApprovalDto;
+import com.syndicate.filing.dto.FilingDiffDto;
 import com.syndicate.filing.dto.FilingStatusDto;
 import com.syndicate.provenance.dto.ProvenanceManifestDto;
 import com.syndicate.provenance.ProvenanceService;
@@ -59,6 +60,7 @@ public class FilingService {
     private final FileStorageService fileStorageService;
     private final AuditService auditService;
     private final DrhpExportService exportService;
+    private final ResubmissionService resubmissionService;
     /** The application's mapper, so dates serialise the same way here as everywhere else. */
     private final ObjectMapper objectMapper;
 
@@ -66,7 +68,8 @@ public class FilingService {
                          FilingPackageRepository packageRepository, FactConflictRepository conflictRepository,
                          ProvenanceService provenanceService, TransactionService transactionService,
                          PermissionService permissionService, FileStorageService fileStorageService,
-                         AuditService auditService, DrhpExportService exportService, ObjectMapper objectMapper) {
+                         AuditService auditService, DrhpExportService exportService,
+                         ResubmissionService resubmissionService, ObjectMapper objectMapper) {
         this.documentRepository = documentRepository;
         this.approvalRepository = approvalRepository;
         this.packageRepository = packageRepository;
@@ -77,6 +80,7 @@ public class FilingService {
         this.fileStorageService = fileStorageService;
         this.auditService = auditService;
         this.exportService = exportService;
+        this.resubmissionService = resubmissionService;
         this.objectMapper = objectMapper;
     }
 
@@ -235,7 +239,29 @@ public class FilingService {
                     .writeValueAsString(manifest));
             write(zip, "evidence-index.csv", evidenceIndex(document));
             write(zip, "approval-certificate.txt", approvalCertificate(document, manifest));
-            write(zip, "README.txt", """
+
+            boolean hasStatementOfChanges = false;
+            if (document.getVersion() > 1) {
+                List<DrhpDocument> priorVersions = documentRepository
+                        .findByTransactionIdOrderByVersionDesc(document.getTransaction().getId());
+                DrhpDocument previous = priorVersions.stream()
+                        .filter(d -> d.getVersion() < document.getVersion())
+                        .findFirst()
+                        .orElse(null);
+                if (previous != null) {
+                    FilingDiffDto diff = resubmissionService.computeDiffForDocuments(previous, document);
+                    String txName = document.getTransaction().getName();
+                    String compName = document.getTransaction().getCompany() != null
+                            ? document.getTransaction().getCompany().getLegalName() : null;
+                    String statementText = resubmissionService.generateStatementOfChangesText(diff, txName, compName);
+                    String statementJson = resubmissionService.generateStatementOfChangesJson(diff);
+                    write(zip, "statement-of-changes.txt", statementText);
+                    write(zip, "statement-of-changes.json", statementJson);
+                    hasStatementOfChanges = true;
+                }
+            }
+
+            StringBuilder readme = new StringBuilder("""
                     Syndicate filing package
                     ========================
                     document.pdf              the formal rendered DRHP document with tables and footnotes
@@ -245,10 +271,18 @@ public class FilingService {
                     evidence-index.csv        every document relied upon, with its SHA-256
                     provenance-manifest.json  the Merkle manifest of the exact state this was built from
                     approval-certificate.txt  who approved this version, and when
+                    """);
+            if (hasStatementOfChanges) {
+                readme.append("statement-of-changes.txt  formal regulatory statement of changes vs previous filing\n")
+                      .append("statement-of-changes.json machine-readable diff of changed disclosures, superseded facts & observations\n");
+            }
+            readme.append("""
 
                     This package was produced by Syndicate. It is not a filing, and nothing in it is a
                     statement that any regulator has approved this issue.
                     """);
+            write(zip, "README.txt", readme.toString());
+
             zip.finish();
             return out.toByteArray();
         } catch (Exception e) {
