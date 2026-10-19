@@ -116,8 +116,8 @@ class FilingPackageIT extends IntegrationTestBase {
                 entries.add(entry.getName());
             }
         }
-        assertThat(entries).containsExactlyInAnyOrder("document.json", "provenance-manifest.json",
-                "evidence-index.csv", "approval-certificate.txt", "README.txt");
+        assertThat(entries).containsExactlyInAnyOrder("document.json", "document.pdf", "document.docx",
+                "provenance-manifest.json", "evidence-index.csv", "approval-certificate.txt", "README.txt");
     }
 
     @Test

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { humanize } from '../constants';
 import { apiDownload } from '../api/client';
-import * as filingApi from '../api/filing';
+import { downloadDrhpPdf, downloadDrhpDocx } from '../api/drhp';
 
 function formatSize(bytes) {
   if (bytes < 1024) return `${bytes} B`;
@@ -109,6 +109,16 @@ export default function FilingPanel({ filing, currentRole, onApprove, onAssemble
               <button className="secondary" onClick={download}>
                 Download {filingPackage.fileName} ({formatSize(filingPackage.sizeBytes)})
               </button>
+            )}
+            {documentId && (
+              <>
+                <button className="secondary" disabled={busy} onClick={() => run(() => downloadDrhpPdf(documentId))}>
+                  Download PDF
+                </button>
+                <button className="secondary" disabled={busy} onClick={() => run(() => downloadDrhpDocx(documentId))}>
+                  Download DOCX
+                </button>
+              </>
             )}
           </div>
 

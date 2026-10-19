@@ -21,13 +21,21 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 import java.util.UUID;
 
+import com.syndicate.drhp.render.DrhpExportService;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+
 @RestController
 public class DrhpController {
 
     private final DrhpService drhpService;
+    private final DrhpExportService exportService;
 
-    public DrhpController(DrhpService drhpService) {
+    public DrhpController(DrhpService drhpService, DrhpExportService exportService) {
         this.drhpService = drhpService;
+        this.exportService = exportService;
     }
 
     @GetMapping("/api/transactions/{id}/disclosures")
@@ -73,6 +81,42 @@ public class DrhpController {
     @GetMapping("/api/transactions/{id}/drhp")
     public DrhpDocumentDto latest(@PathVariable UUID id, @AuthenticationPrincipal User currentUser) {
         return drhpService.latest(id, currentUser.getId());
+    }
+
+    @GetMapping("/api/drhp/versions/{id}/export/pdf")
+    public ResponseEntity<byte[]> exportPdf(@PathVariable UUID id, @AuthenticationPrincipal User currentUser) {
+        byte[] pdf = exportService.exportPdf(id, currentUser);
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_PDF);
+        headers.setContentDisposition(ContentDisposition.attachment().filename("drhp-" + id + ".pdf").build());
+        return new ResponseEntity<>(pdf, headers, HttpStatus.OK);
+    }
+
+    @GetMapping("/api/drhp/versions/{id}/export/docx")
+    public ResponseEntity<byte[]> exportDocx(@PathVariable UUID id, @AuthenticationPrincipal User currentUser) {
+        byte[] docx = exportService.exportDocx(id, currentUser);
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.wordprocessingml.document"));
+        headers.setContentDisposition(ContentDisposition.attachment().filename("drhp-" + id + ".docx").build());
+        return new ResponseEntity<>(docx, headers, HttpStatus.OK);
+    }
+
+    @GetMapping("/api/transactions/{id}/drhp/export/pdf")
+    public ResponseEntity<byte[]> exportLatestPdf(@PathVariable UUID id, @AuthenticationPrincipal User currentUser) {
+        byte[] pdf = exportService.exportLatestPdf(id, currentUser);
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_PDF);
+        headers.setContentDisposition(ContentDisposition.attachment().filename("drhp-latest.pdf").build());
+        return new ResponseEntity<>(pdf, headers, HttpStatus.OK);
+    }
+
+    @GetMapping("/api/transactions/{id}/drhp/export/docx")
+    public ResponseEntity<byte[]> exportLatestDocx(@PathVariable UUID id, @AuthenticationPrincipal User currentUser) {
+        byte[] docx = exportService.exportLatestDocx(id, currentUser);
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.wordprocessingml.document"));
+        headers.setContentDisposition(ContentDisposition.attachment().filename("drhp-latest.docx").build());
+        return new ResponseEntity<>(docx, headers, HttpStatus.OK);
     }
 
     public record LinkFactRequest(UUID factId) {

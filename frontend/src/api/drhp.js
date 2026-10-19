@@ -1,4 +1,4 @@
-import { apiDelete, apiGet, apiPost, apiPut } from './client';
+import { apiDelete, apiDownload, apiGet, apiPost, apiPut } from './client';
 
 export function listDisclosures(transactionId) {
   return apiGet(`/transactions/${transactionId}/disclosures`);
@@ -30,4 +30,20 @@ export function getLatestDrhp(transactionId) {
 
 export function getProvenance(drhpDocumentId) {
   return apiGet(`/drhp/versions/${drhpDocumentId}/provenance`);
+}
+
+export function downloadDrhpPdf(documentId) {
+  return apiDownload(`/drhp/versions/${documentId}/export/pdf`);
+}
+
+export function downloadDrhpDocx(documentId) {
+  return apiDownload(`/drhp/versions/${documentId}/export/docx`);
+}
+
+export function downloadLatestDrhpPdf(transactionId) {
+  return apiDownload(`/transactions/${transactionId}/drhp/export/pdf`);
+}
+
+export function downloadLatestDrhpDocx(transactionId) {
+  return apiDownload(`/transactions/${transactionId}/drhp/export/docx`);
 }

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { humanize } from '../constants';
+import { downloadDrhpPdf, downloadDrhpDocx } from '../api/drhp';
 import DisclosureBodyEditor from './DisclosureBodyEditor';
 
 function disclosureBadge(status) {
@@ -20,6 +21,7 @@ export default function DrhpPanel({
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState(EMPTY_FORM);
   const [tracedFact, setTracedFact] = useState(null);
+  const [exporting, setExporting] = useState(null);
 
   const sections = compileResult?.preview || drhpDocument?.sections || [];
   const findings = compileResult?.findings || [];
@@ -63,23 +65,57 @@ export default function DrhpPanel({
             {drhpDocument.compileMode && <> · {humanize(drhpDocument.compileMode)}</>}
           </div>
 
-          {drhpDocument.merkleRoot && (
-            <div className="merkle-row">
-              <button
-                className="merkle-badge"
-                title="Inspect the cryptographic provenance manifest"
-                onClick={() => onInspectProvenance(drhpDocument.id)}
-              >
-                Root: {drhpDocument.merkleRoot.slice(0, 8)}…
-              </button>
-              <button
-                className="secondary"
-                onClick={() => navigator.clipboard?.writeText(drhpDocument.merkleRoot)}
-              >
-                Copy full SHA-256
-              </button>
-            </div>
-          )}
+          <div className="merkle-row">
+            {drhpDocument.merkleRoot && (
+              <>
+                <button
+                  className="merkle-badge"
+                  title="Inspect the cryptographic provenance manifest"
+                  onClick={() => onInspectProvenance(drhpDocument.id)}
+                >
+                  Root: {drhpDocument.merkleRoot.slice(0, 8)}…
+                </button>
+                <button
+                  className="secondary"
+                  onClick={() => navigator.clipboard?.writeText(drhpDocument.merkleRoot)}
+                >
+                  Copy full SHA-256
+                </button>
+              </>
+            )}
+            <button
+              className="secondary"
+              onClick={async () => {
+                setExporting('pdf');
+                try {
+                  await downloadDrhpPdf(drhpDocument.id);
+                } catch (err) {
+                  alert('Export failed: ' + err.message);
+                } finally {
+                  setExporting(null);
+                }
+              }}
+              disabled={exporting !== null}
+            >
+              {exporting === 'pdf' ? 'Exporting PDF...' : 'Export PDF'}
+            </button>
+            <button
+              className="secondary"
+              onClick={async () => {
+                setExporting('docx');
+                try {
+                  await downloadDrhpDocx(drhpDocument.id);
+                } catch (err) {
+                  alert('Export failed: ' + err.message);
+                } finally {
+                  setExporting(null);
+                }
+              }}
+              disabled={exporting !== null}
+            >
+              {exporting === 'docx' ? 'Exporting DOCX...' : 'Export DOCX'}
+            </button>
+          </div>
         </div>
       )}
 

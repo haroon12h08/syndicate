@@ -20,6 +20,7 @@ import com.syndicate.provenance.ProvenanceService;
 import com.syndicate.transaction.TransactionRole;
 import com.syndicate.transaction.TransactionService;
 import com.syndicate.permission.PermissionService;
+import com.syndicate.drhp.render.DrhpExportService;
 import com.syndicate.user.User;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.core.io.Resource;
@@ -57,6 +58,7 @@ public class FilingService {
     private final PermissionService permissionService;
     private final FileStorageService fileStorageService;
     private final AuditService auditService;
+    private final DrhpExportService exportService;
     /** The application's mapper, so dates serialise the same way here as everywhere else. */
     private final ObjectMapper objectMapper;
 
@@ -64,7 +66,7 @@ public class FilingService {
                          FilingPackageRepository packageRepository, FactConflictRepository conflictRepository,
                          ProvenanceService provenanceService, TransactionService transactionService,
                          PermissionService permissionService, FileStorageService fileStorageService,
-                         AuditService auditService, ObjectMapper objectMapper) {
+                         AuditService auditService, DrhpExportService exportService, ObjectMapper objectMapper) {
         this.documentRepository = documentRepository;
         this.approvalRepository = approvalRepository;
         this.packageRepository = packageRepository;
@@ -74,6 +76,7 @@ public class FilingService {
         this.permissionService = permissionService;
         this.fileStorageService = fileStorageService;
         this.auditService = auditService;
+        this.exportService = exportService;
         this.objectMapper = objectMapper;
     }
 
@@ -226,6 +229,8 @@ public class FilingService {
     private byte[] buildArchive(DrhpDocument document, ProvenanceManifestDto manifest) {
         try (ByteArrayOutputStream out = new ByteArrayOutputStream(); ZipOutputStream zip = new ZipOutputStream(out)) {
             write(zip, "document.json", document.getCompiledBody());
+            write(zip, "document.pdf", exportService.renderPdfForDocument(document));
+            write(zip, "document.docx", exportService.renderDocxForDocument(document));
             write(zip, "provenance-manifest.json", objectMapper.writerWithDefaultPrettyPrinter()
                     .writeValueAsString(manifest));
             write(zip, "evidence-index.csv", evidenceIndex(document));
@@ -233,6 +238,8 @@ public class FilingService {
             write(zip, "README.txt", """
                     Syndicate filing package
                     ========================
+                    document.pdf              the formal rendered DRHP document with tables and footnotes
+                    document.docx             the editable Word version of the DRHP document
                     document.json             the compiled document, section by section, with every value
                                               traced to the fact and evidence it came from
                     evidence-index.csv        every document relied upon, with its SHA-256
@@ -288,8 +295,12 @@ public class FilingService {
     }
 
     private static void write(ZipOutputStream zip, String name, String content) throws java.io.IOException {
+        write(zip, name, content == null ? new byte[0] : content.getBytes(StandardCharsets.UTF_8));
+    }
+
+    private static void write(ZipOutputStream zip, String name, byte[] bytes) throws java.io.IOException {
         zip.putNextEntry(new ZipEntry(name));
-        zip.write(content == null ? new byte[0] : content.getBytes(StandardCharsets.UTF_8));
+        zip.write(bytes == null ? new byte[0] : bytes);
         zip.closeEntry();
     }
 }
