@@ -4,6 +4,7 @@ import * as factsApi from '../api/facts';
 import * as evidenceApi from '../api/evidence';
 import { humanize } from '../constants';
 import FactReviews from '../components/FactReviews';
+import SpatialEvidenceViewer from '../components/SpatialEvidenceViewer';
 
 export default function FactTracePage() {
   const { id } = useParams();
@@ -11,6 +12,7 @@ export default function FactTracePage() {
   const [imageUrl, setImageUrl] = useState(null);
   const [imageError, setImageError] = useState(null);
   const [error, setError] = useState(null);
+  const [showViewer, setShowViewer] = useState(false);
 
   useEffect(() => {
     factsApi.getFactTrace(id).then(setTrace).catch((err) => setError(err.message));
@@ -103,6 +105,14 @@ export default function FactTracePage() {
               <div className="candidate-fact-bbox" style={box} />
             </div>
           )}
+          <button
+            type="button"
+            className="primary"
+            style={{ marginTop: '0.75rem', marginBottom: '1.25rem' }}
+            onClick={() => setShowViewer(true)}
+          >
+            Open Interactive Document Viewer
+          </button>
         </>
       )}
 
@@ -120,6 +130,13 @@ export default function FactTracePage() {
         onReviewed={() => factsApi.getFactTrace(id).then(setTrace).catch(() => {})}
       />
 
+      {showViewer && origin && (
+        <SpatialEvidenceViewer
+          evidenceId={origin.evidenceId}
+          targetFactId={fact.id}
+          onClose={() => setShowViewer(false)}
+        />
+      )}
     </div>
   );
 }

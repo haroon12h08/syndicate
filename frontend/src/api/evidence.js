@@ -29,6 +29,10 @@ export function pageImageUrl(evidenceId, pageNumber) {
   return apiImageBlobUrl(`/evidence/${evidenceId}/pages/${pageNumber}/image`);
 }
 
+export function getEvidenceManifest(id) {
+  return apiGet(`/evidence/${id}/manifest`);
+}
+
 export function listTransactionEvidence(transactionId) {
   return apiGet(`/transactions/${transactionId}/evidence`);
 }

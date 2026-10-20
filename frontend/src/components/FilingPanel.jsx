@@ -23,9 +23,8 @@ export default function FilingPanel({ transactionId, filing, currentRole, onAppr
   const [diff, setDiff] = useState(null);
   const [loadingDiff, setLoadingDiff] = useState(false);
 
-  if (!filing) return null;
-  const { documentId, documentVersion, documentStatus, approvals, awaitingApprovalFrom, blockers,
-    readyToAssemble, filingPackage } = filing;
+  const documentId = filing?.documentId;
+  const documentVersion = filing?.documentVersion;
 
   useEffect(() => {
     let active = true;
@@ -48,6 +47,10 @@ export default function FilingPanel({ transactionId, filing, currentRole, onAppr
       active = false;
     };
   }, [documentId, documentVersion]);
+
+  if (!filing) return null;
+  const { documentStatus, approvals, awaitingApprovalFrom, blockers,
+    readyToAssemble, filingPackage } = filing;
 
   async function run(action) {
     setBusy(true);

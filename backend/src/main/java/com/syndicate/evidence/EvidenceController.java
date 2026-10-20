@@ -2,6 +2,7 @@ package com.syndicate.evidence;
 
 import com.syndicate.evidence.dto.EvidenceDto;
 import com.syndicate.evidence.dto.EvidenceIntegrityDto;
+import com.syndicate.evidence.dto.EvidenceManifestDto;
 import com.syndicate.user.User;
 import jakarta.validation.Valid;
 import org.springframework.core.io.Resource;
@@ -112,5 +113,10 @@ public class EvidenceController {
                                                @AuthenticationPrincipal User currentUser) {
         Resource resource = evidenceService.loadPageImage(id, pageNumber, currentUser.getId());
         return ResponseEntity.ok().contentType(MediaType.IMAGE_PNG).body(resource);
+    }
+
+    @GetMapping("/api/evidence/{id}/manifest")
+    public EvidenceManifestDto manifest(@PathVariable UUID id, @AuthenticationPrincipal User currentUser) {
+        return evidenceService.getManifest(id, currentUser.getId());
     }
 }

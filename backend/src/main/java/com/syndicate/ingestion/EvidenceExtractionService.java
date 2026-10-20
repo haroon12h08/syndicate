@@ -144,11 +144,14 @@ public class EvidenceExtractionService {
     }
 
     private void persistCandidates(Evidence evidence, List<MatchedCandidate> matches, Map<Integer, byte[]> pageImages) {
-        Set<Integer> cachedPages = new HashSet<>();
+        if (pageImages != null) {
+            pageImages.forEach((pageNumber, pngBytes) -> {
+                if (pngBytes != null && !pageImageCache.exists(evidence.getId(), pageNumber)) {
+                    pageImageCache.save(evidence.getId(), pageNumber, pngBytes);
+                }
+            });
+        }
         for (MatchedCandidate m : matches) {
-            if (cachedPages.add(m.pageNumber())) {
-                pageImageCache.save(evidence.getId(), m.pageNumber(), pageImages.get(m.pageNumber()));
-            }
             candidateFactRepository.save(toCandidateFact(evidence, m));
         }
         evidence.setProcessingStatus(ProcessingStatus.COMPLETE);

@@ -15,6 +15,10 @@ public interface CandidateFactRepository extends JpaRepository<CandidateFact, UU
 
     List<CandidateFact> findByEvidenceIdAndStatus(UUID evidenceId, CandidateFactStatus status);
 
+    List<CandidateFact> findByEvidenceIdOrderByPageNumberAsc(UUID evidenceId);
+
+    List<CandidateFact> findByEvidenceId(UUID evidenceId);
+
     /** The accepted extraction a fact came from, when it originated from a document. */
     Optional<CandidateFact> findByResultingFactId(UUID factId);
 }

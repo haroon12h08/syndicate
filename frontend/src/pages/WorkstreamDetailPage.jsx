@@ -12,6 +12,7 @@ import ImpactNotice from '../components/ImpactNotice';
 import EvidenceUploadForm from '../components/EvidenceUploadForm';
 import IssueForm from '../components/IssueForm';
 import CandidateFactCard from '../components/CandidateFactCard';
+import SpatialEvidenceViewer from '../components/SpatialEvidenceViewer';
 import { ISSUE_SEVERITIES, ISSUE_STATUSES, humanize } from '../constants';
 
 function IssueRow({ issue, onUpdate }) {
@@ -86,6 +87,7 @@ export default function WorkstreamDetailPage() {
   const [showEvidenceForm, setShowEvidenceForm] = useState(false);
   const [showIssueForm, setShowIssueForm] = useState(false);
   const [linkChoice, setLinkChoice] = useState({});
+  const [viewerConfig, setViewerConfig] = useState(null);
 
   async function load() {
     try {
@@ -384,6 +386,7 @@ export default function WorkstreamDetailPage() {
                   {f.evidenceIds.map((eid) => (
                     <div key={eid} className="linked-evidence">
                       {evidenceNameById(eid)}
+                      <button className="link-button" onClick={() => setViewerConfig({ evidenceId: eid, targetFactId: f.id })}>view</button>
                       <button className="link-button" onClick={() => handleUnlinkEvidence(f.id, eid)}>unlink</button>
                     </div>
                   ))}
@@ -414,6 +417,11 @@ export default function WorkstreamDetailPage() {
                   <button className="secondary" onClick={() => handleToggleHistory(f.id)}>
                     {historyFactId === f.id ? 'Hide history' : 'History'}
                   </button>
+                  {f.evidenceIds.length > 0 && (
+                    <button className="secondary" onClick={() => setViewerConfig({ evidenceId: f.evidenceIds[0], targetFactId: f.id })}>
+                      Grounding
+                    </button>
+                  )}
                 </td>
               </tr>
               {historyFactId === f.id && (
@@ -488,6 +496,7 @@ export default function WorkstreamDetailPage() {
               </td>
               <td>{e.uploadedBy.fullName}</td>
               <td>
+                <button className="secondary" onClick={() => setViewerConfig({ evidenceId: e.id })}>View & Grounding</button>
                 <button onClick={() => handleDownload(e.id)}>Download</button>
                 {e.processingStatus === 'FAILED' && (
                   <button onClick={() => handleReprocessEvidence(e.id)}>Retry</button>
@@ -511,6 +520,7 @@ export default function WorkstreamDetailPage() {
           candidate={c}
           onAccept={handleAcceptCandidate}
           onReject={handleRejectCandidate}
+          onInspect={() => setViewerConfig({ evidenceId: c.evidenceId, targetCandidateFactId: c.id })}
         />
       ))}
 
@@ -532,6 +542,16 @@ export default function WorkstreamDetailPage() {
           {issues.length === 0 && <tr><td colSpan={5} className="hint">No issues yet.</td></tr>}
         </tbody>
       </table>
+
+      {viewerConfig && (
+        <SpatialEvidenceViewer
+          evidenceId={viewerConfig.evidenceId}
+          targetFactId={viewerConfig.targetFactId}
+          targetCandidateFactId={viewerConfig.targetCandidateFactId}
+          onClose={() => setViewerConfig(null)}
+          onFactUpdated={load}
+        />
+      )}
     </div>
   );
 }

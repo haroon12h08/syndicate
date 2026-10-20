@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import * as evidenceApi from '../api/evidence';
 
-export default function CandidateFactCard({ candidate, onAccept, onReject }) {
+export default function CandidateFactCard({ candidate, onAccept, onReject, onInspect }) {
   const [imageUrl, setImageUrl] = useState(null);
   const [imageError, setImageError] = useState(null);
   const [label, setLabel] = useState(candidate.label);
@@ -87,6 +87,11 @@ export default function CandidateFactCard({ candidate, onAccept, onReject }) {
           <input value={reviewNote} onChange={(e) => setReviewNote(e.target.value)} placeholder="optional" />
         </label>
         <div className="form-actions">
+          {onInspect && (
+            <button type="button" className="secondary" onClick={() => onInspect(candidate)}>
+              Inspect in Viewer
+            </button>
+          )}
           <button disabled={submitting} onClick={handleAccept}>{submitting ? 'Saving...' : 'Accept'}</button>
           <button disabled={submitting} className="secondary" onClick={handleReject}>Reject</button>
         </div>

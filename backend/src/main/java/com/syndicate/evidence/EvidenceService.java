@@ -11,21 +11,35 @@ import com.syndicate.common.ConflictException;
 import com.syndicate.common.ResourceNotFoundException;
 import com.syndicate.evidence.dto.EvidenceDto;
 import com.syndicate.evidence.dto.EvidenceIntegrityDto;
+import com.syndicate.evidence.dto.EvidenceManifestDto;
+import com.syndicate.fact.Fact;
+import com.syndicate.fact.FactRepository;
+import com.syndicate.fact.FactStatus;
 import com.syndicate.jobs.JobQueue;
 import com.syndicate.jobs.JobType;
 import com.syndicate.ingestion.PageImageCache;
+import com.syndicate.ingestion.PdfCoordinateConverter;
 import com.syndicate.user.User;
 import com.syndicate.workstream.Workstream;
 import com.syndicate.workstream.WorkstreamService;
+import org.apache.pdfbox.Loader;
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.rendering.PDFRenderer;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -37,6 +51,7 @@ public class EvidenceService {
     private final JobQueue jobQueue;
     private final PageImageCache pageImageCache;
     private final CandidateFactRepository candidateFactRepository;
+    private final FactRepository factRepository;
     private final com.syndicate.transaction.TransactionService transactionService;
     private final AuditService auditService;
     private final UploadValidator uploadValidator;
@@ -44,6 +59,7 @@ public class EvidenceService {
     public EvidenceService(EvidenceRepository evidenceRepository, WorkstreamService workstreamService,
                             FileStorageService fileStorageService, JobQueue jobQueue,
                             PageImageCache pageImageCache, CandidateFactRepository candidateFactRepository,
+                            FactRepository factRepository,
                             com.syndicate.transaction.TransactionService transactionService,
                             AuditService auditService, UploadValidator uploadValidator) {
         this.evidenceRepository = evidenceRepository;
@@ -52,6 +68,7 @@ public class EvidenceService {
         this.jobQueue = jobQueue;
         this.pageImageCache = pageImageCache;
         this.candidateFactRepository = candidateFactRepository;
+        this.factRepository = factRepository;
         this.transactionService = transactionService;
         this.auditService = auditService;
         this.uploadValidator = uploadValidator;
@@ -253,7 +270,130 @@ public class EvidenceService {
     public Resource loadPageImage(UUID evidenceId, int pageNumber, UUID callerId) {
         Evidence evidence = findEvidence(evidenceId);
         workstreamService.requireAccess(evidence.getWorkstream().getId(), callerId);
+        if (!pageImageCache.exists(evidenceId, pageNumber)) {
+            renderAndCachePage(evidence, pageNumber);
+        }
         return pageImageCache.load(evidenceId, pageNumber);
     }
 
+    private void renderAndCachePage(Evidence evidence, int pageNumber) {
+        byte[] bytes = fileStorageService.readBytes(evidence.getStoragePath());
+        String contentType = evidence.getContentType();
+        String fileName = evidence.getFileName() != null ? evidence.getFileName().toLowerCase() : "";
+
+        if ("application/pdf".equalsIgnoreCase(contentType) || fileName.endsWith(".pdf")) {
+            try (PDDocument document = Loader.loadPDF(bytes)) {
+                if (pageNumber < 1 || pageNumber > document.getNumberOfPages()) {
+                    throw new ResourceNotFoundException("Page " + pageNumber + " out of bounds for evidence " + evidence.getId());
+                }
+                PDFRenderer renderer = new PDFRenderer(document);
+                BufferedImage image = renderer.renderImageWithDPI(pageNumber - 1, PdfCoordinateConverter.RENDER_DPI);
+                ByteArrayOutputStream out = new ByteArrayOutputStream();
+                ImageIO.write(image, "png", out);
+                pageImageCache.save(evidence.getId(), pageNumber, out.toByteArray());
+            } catch (IOException e) {
+                throw new BadRequestException("Failed to render page " + pageNumber + " for evidence " + evidence.getId() + ": " + e.getMessage());
+            }
+        } else if (contentType != null && (contentType.startsWith("image/") || fileName.endsWith(".png") || fileName.endsWith(".jpg") || fileName.endsWith(".jpeg"))) {
+            if (pageNumber != 1) {
+                throw new ResourceNotFoundException("Image documents only have page 1");
+            }
+            try {
+                BufferedImage image = ImageIO.read(new ByteArrayInputStream(bytes));
+                if (image == null) {
+                    throw new BadRequestException("Failed to decode image");
+                }
+                ByteArrayOutputStream out = new ByteArrayOutputStream();
+                ImageIO.write(image, "png", out);
+                pageImageCache.save(evidence.getId(), 1, out.toByteArray());
+            } catch (IOException e) {
+                throw new BadRequestException("Failed to process image: " + e.getMessage());
+            }
+        } else {
+            throw new BadRequestException("Document type " + contentType + " cannot be visually rendered into page images");
+        }
+    }
+
+    public int getPageCount(Evidence evidence) {
+        String contentType = evidence.getContentType();
+        String fileName = evidence.getFileName() != null ? evidence.getFileName().toLowerCase() : "";
+        if ("application/pdf".equalsIgnoreCase(contentType) || fileName.endsWith(".pdf")) {
+            try {
+                byte[] bytes = fileStorageService.readBytes(evidence.getStoragePath());
+                try (PDDocument document = Loader.loadPDF(bytes)) {
+                    return Math.max(1, document.getNumberOfPages());
+                }
+            } catch (Exception e) {
+                return Math.max(1, candidateFactRepository.findByEvidenceId(evidence.getId()).stream()
+                        .mapToInt(CandidateFact::getPageNumber).max().orElse(1));
+            }
+        }
+        return 1;
+    }
+
+    public EvidenceManifestDto getManifest(UUID evidenceId, UUID callerId) {
+        Evidence evidence = findEvidence(evidenceId);
+        workstreamService.requireAccess(evidence.getWorkstream().getId(), callerId);
+
+        int pageCount = getPageCount(evidence);
+        List<CandidateFact> candidates = candidateFactRepository.findByEvidenceIdOrderByPageNumberAsc(evidenceId);
+        List<Fact> linkedFacts = factRepository.findByEvidenceId(evidenceId);
+
+        List<EvidenceManifestDto.SpatialAnchorDto> anchors = candidates.stream().map(c -> {
+            Fact rf = c.getResultingFact();
+            UUID rfId = rf != null ? rf.getId() : null;
+            String factKey = rf != null ? rf.getFactKey() : null;
+            boolean isVerified = rf != null && rf.getStatus() == FactStatus.VERIFIED;
+            return new EvidenceManifestDto.SpatialAnchorDto(
+                    c.getId(),
+                    rfId,
+                    factKey,
+                    c.getLabel(),
+                    c.getValue(),
+                    c.getPeriod(),
+                    c.getPageNumber(),
+                    c.getBboxX(),
+                    c.getBboxY(),
+                    c.getBboxWidth(),
+                    c.getBboxHeight(),
+                    c.getPageImageWidth(),
+                    c.getPageImageHeight(),
+                    c.getStatus(),
+                    c.getSource(),
+                    isVerified
+            );
+        }).toList();
+
+        Map<UUID, Integer> factAnchorPages = candidates.stream()
+                .filter(c -> c.getResultingFact() != null)
+                .collect(Collectors.toMap(c -> c.getResultingFact().getId(), CandidateFact::getPageNumber, (a, b) -> a));
+
+        List<EvidenceManifestDto.LinkedFactDto> linkedDtos = linkedFacts.stream().map(f -> {
+            Integer page = factAnchorPages.get(f.getId());
+            return new EvidenceManifestDto.LinkedFactDto(
+                    f.getId(),
+                    f.getFactKey(),
+                    f.getLabel(),
+                    f.getValue(),
+                    f.getUnit(),
+                    f.getPeriod(),
+                    f.getStatus(),
+                    page != null,
+                    page
+            );
+        }).toList();
+
+        return new EvidenceManifestDto(
+                evidence.getId(),
+                evidence.getFileName(),
+                evidence.getContentType(),
+                pageCount,
+                evidence.getQuality(),
+                evidence.getRetentionState(),
+                evidence.getFileSha256(),
+                evidence.getDocumentType(),
+                anchors,
+                linkedDtos
+        );
+    }
 }

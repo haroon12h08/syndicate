@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { humanize } from '../constants';
 import { downloadDrhpPdf, downloadDrhpDocx } from '../api/drhp';
 import DisclosureBodyEditor from './DisclosureBodyEditor';
+import SpatialEvidenceViewer from './SpatialEvidenceViewer';
 
 function disclosureBadge(status) {
   if (status === 'READY') return 'badge badge-complete';
@@ -21,6 +22,7 @@ export default function DrhpPanel({
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState(EMPTY_FORM);
   const [tracedFact, setTracedFact] = useState(null);
+  const [viewerEvidence, setViewerEvidence] = useState(null);
   const [exporting, setExporting] = useState(null);
 
   const sections = compileResult?.preview || drhpDocument?.sections || [];
@@ -276,11 +278,35 @@ export default function DrhpPanel({
               This value was printed from a human-verified fact. Open the fact to see its full version
               history and the page regions its evidence was anchored to.
             </p>
+            {tracedFact.evidenceIds && tracedFact.evidenceIds.length > 0 && (
+              <button
+                type="button"
+                className="primary"
+                style={{ marginBottom: '0.75rem', width: '100%' }}
+                onClick={() => {
+                  setViewerEvidence({
+                    evidenceId: tracedFact.evidenceIds[0],
+                    targetFactId: tracedFact.factId,
+                  });
+                  setTracedFact(null);
+                }}
+              >
+                View Grounding in Source PDF
+              </button>
+            )}
             <Link className="drawer-cta" to={`/facts/${tracedFact.factId}/trace`}>
               Open evidence trace
             </Link>
           </aside>
         </div>
+      )}
+
+      {viewerEvidence && (
+        <SpatialEvidenceViewer
+          evidenceId={viewerEvidence.evidenceId}
+          targetFactId={viewerEvidence.targetFactId}
+          onClose={() => setViewerEvidence(null)}
+        />
       )}
     </section>
   );

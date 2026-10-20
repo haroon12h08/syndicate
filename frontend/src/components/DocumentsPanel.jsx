@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { EVIDENCE_DOCUMENT_TYPES, humanize } from '../constants';
+import SpatialEvidenceViewer from './SpatialEvidenceViewer';
 
 function statusBadge(status) {
   if (status === 'COMPLETED') return 'badge badge-complete';
@@ -23,6 +24,7 @@ export default function DocumentsPanel({
   const [file, setFile] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [dragging, setDragging] = useState(false);
+  const [viewerEvidenceId, setViewerEvidenceId] = useState(null);
   const fileInput = useRef(null);
 
   const targetWorkstream = workstreamId || workstreams[0]?.id || '';
@@ -133,6 +135,7 @@ export default function DocumentsPanel({
               </td>
               <td><code className="hint">{e.fileSha256?.slice(0, 10)}</code></td>
               <td className="row-actions">
+                <button className="secondary" onClick={() => setViewerEvidenceId(e.id)}>View & Grounding</button>
                 <button className="secondary" onClick={() => onDownload(e.id)}>Download</button>
                 <button className="secondary" onClick={() => onReprocess(e.id)}>Reprocess</button>
                 <button className="secondary" onClick={() => onDelete(e.id, e.fileName)}>Archive</button>
@@ -144,6 +147,13 @@ export default function DocumentsPanel({
           )}
         </tbody>
       </table>
+
+      {viewerEvidenceId && (
+        <SpatialEvidenceViewer
+          evidenceId={viewerEvidenceId}
+          onClose={() => setViewerEvidenceId(null)}
+        />
+      )}
     </section>
   );
 }
