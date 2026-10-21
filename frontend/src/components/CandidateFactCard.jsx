@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import * as evidenceApi from '../api/evidence';
+import AiProvenanceModal from './AiProvenanceModal';
 
 export default function CandidateFactCard({ candidate, onAccept, onReject, onInspect }) {
   const [imageUrl, setImageUrl] = useState(null);
@@ -9,6 +10,7 @@ export default function CandidateFactCard({ candidate, onAccept, onReject, onIns
   const [period, setPeriod] = useState(candidate.period || '');
   const [reviewNote, setReviewNote] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [showProvenance, setShowProvenance] = useState(false);
 
   useEffect(() => {
     let objectUrl = null;
@@ -67,8 +69,22 @@ export default function CandidateFactCard({ candidate, onAccept, onReject, onIns
         )}
       </div>
       <div className="candidate-fact-fields">
-        <span className="hint">
-          Page {candidate.pageNumber} &middot; {candidate.source === 'OCR' ? 'OCR' : 'Text layer'}
+        <span className="hint candidate-source-row">
+          Page {candidate.pageNumber} &middot;{' '}
+          {candidate.source === 'AI' ? (
+            <button
+              type="button"
+              className="badge badge-ai"
+              onClick={() => setShowProvenance(true)}
+              title="Click to view AI Provenance (Spec §27)"
+            >
+              🤖 AI Candidate {candidate.confidence ? `(${Math.round(candidate.confidence * 100)}%)` : ''}
+            </button>
+          ) : candidate.source === 'OCR' ? (
+            'OCR'
+          ) : (
+            'Text layer'
+          )}
         </span>
         <label>
           Label
@@ -96,6 +112,9 @@ export default function CandidateFactCard({ candidate, onAccept, onReject, onIns
           <button disabled={submitting} className="secondary" onClick={handleReject}>Reject</button>
         </div>
       </div>
+      {showProvenance && candidate.aiArtifactId && (
+        <AiProvenanceModal artifactId={candidate.aiArtifactId} onClose={() => setShowProvenance(false)} />
+      )}
     </div>
   );
 }

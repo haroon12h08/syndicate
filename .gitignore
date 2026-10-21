@@ -8,6 +8,7 @@
 backend/target/
 backend/uploads/
 backend/logs/
+backend/src/main/resources/static/
 
 # Frontend build output and dependencies
 frontend/node_modules/

@@ -2144,3 +2144,139 @@ a.stat-tile:hover { border-color: #4a4a4a; }
   color: var(--danger);
 }
 
+/* ==========================================================================
+   Phase G: AI Intelligence Layer & Provenance (Spec §26-28)
+   ========================================================================== */
+
+.badge-ai {
+  background: rgba(168, 85, 247, 0.15) !important;
+  color: #c084fc !important;
+  border: 1px solid rgba(168, 85, 247, 0.35) !important;
+  font-weight: 500;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  transition: all 0.15s ease;
+}
+
+.badge-ai:hover {
+  background: rgba(168, 85, 247, 0.25) !important;
+  border-color: #c084fc !important;
+}
+
+.ai-suggestion-box {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.35rem;
+}
+
+.button-tiny {
+  padding: 0.15rem 0.5rem;
+  font-size: 0.7rem;
+  border-radius: 4px;
+  background: #3b82f6;
+  color: #fff;
+  border: none;
+  cursor: pointer;
+}
+
+.button-tiny:hover {
+  background: #2563eb;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(4px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ai-provenance-modal {
+  width: min(92vw, 680px);
+  max-height: 85vh;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+}
+
+.ai-provenance-body {
+  padding: 1.25rem;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.ai-provenance-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  background: var(--surface-2);
+  padding: 1rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+}
+
+.provenance-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.provenance-item .label,
+.provenance-section .label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  letter-spacing: 0.05em;
+  font-weight: 600;
+}
+
+.provenance-item .value {
+  font-size: 0.88rem;
+  color: var(--text);
+}
+
+.provenance-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.hash-code {
+  display: block;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.75rem;
+  background: var(--surface-2);
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  word-break: break-all;
+  color: #38bdf8;
+}
+
+.raw-output-block {
+  margin: 0;
+  padding: 0.75rem;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 0.75rem;
+  font-family: var(--font-mono, monospace);
+  color: var(--text);
+  max-height: 180px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+

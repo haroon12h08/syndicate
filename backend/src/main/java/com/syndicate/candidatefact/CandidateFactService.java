@@ -54,6 +54,10 @@ public class CandidateFactService {
         return candidates.stream().map(CandidateFactDto::from).toList();
     }
 
+    public List<CandidateFact> findByWorkstreamId(UUID workstreamId) {
+        return candidateFactRepository.findByWorkstreamId(workstreamId);
+    }
+
     public CandidateFactDto get(UUID id, UUID callerId) {
         CandidateFact candidate = findCandidate(id);
         workstreamService.requireAccess(candidate.getWorkstream().getId(), callerId);

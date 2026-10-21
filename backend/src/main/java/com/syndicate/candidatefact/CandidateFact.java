@@ -80,6 +80,13 @@ public class CandidateFact extends BaseEntity {
     @JoinColumn(name = "resulting_fact_id")
     private Fact resultingFact;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "ai_artifact_id")
+    private com.syndicate.ai.artifact.AiArtifact aiArtifact;
+
+    @Column
+    private Double confidence;
+
     protected CandidateFact() {
     }
 
@@ -174,12 +181,41 @@ public class CandidateFact extends BaseEntity {
         return resultingFact;
     }
 
+    public CandidateFact(Workstream workstream, Evidence evidence, String label, String value, String period,
+                          int pageNumber, double bboxX, double bboxY, double bboxWidth, double bboxHeight,
+                          int pageImageWidth, int pageImageHeight, CandidateFactSource source,
+                          com.syndicate.ai.artifact.AiArtifact aiArtifact, Double confidence) {
+        this(workstream, evidence, label, value, period, pageNumber, bboxX, bboxY, bboxWidth, bboxHeight,
+                pageImageWidth, pageImageHeight, source);
+        this.aiArtifact = aiArtifact;
+        this.confidence = confidence;
+    }
+
+    public com.syndicate.ai.artifact.AiArtifact getAiArtifact() {
+        return aiArtifact;
+    }
+
+    public void setAiArtifact(com.syndicate.ai.artifact.AiArtifact aiArtifact) {
+        this.aiArtifact = aiArtifact;
+    }
+
+    public Double getConfidence() {
+        return confidence;
+    }
+
+    public void setConfidence(Double confidence) {
+        this.confidence = confidence;
+    }
+
     public void accept(User reviewer, String note, Fact resultingFact) {
         this.status = CandidateFactStatus.ACCEPTED;
         this.reviewedByUser = reviewer;
         this.reviewedAt = Instant.now();
         this.reviewNote = note;
         this.resultingFact = resultingFact;
+        if (this.aiArtifact != null) {
+            this.aiArtifact.accept(reviewer, note, "Fact", resultingFact.getId());
+        }
     }
 
     public void reject(User reviewer, String note) {
@@ -187,6 +223,9 @@ public class CandidateFact extends BaseEntity {
         this.reviewedByUser = reviewer;
         this.reviewedAt = Instant.now();
         this.reviewNote = note;
+        if (this.aiArtifact != null) {
+            this.aiArtifact.reject(reviewer, note);
+        }
     }
 
     public void supersede() {

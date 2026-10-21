@@ -93,6 +93,11 @@ public class EvidenceController {
         return evidenceService.assessQuality(id, request.quality(), request.reason(), currentUser);
     }
 
+    @PostMapping("/api/evidence/{id}/accept-classification")
+    public EvidenceDto acceptClassification(@PathVariable UUID id, @AuthenticationPrincipal User currentUser) {
+        return evidenceService.acceptClassification(id, currentUser);
+    }
+
     @GetMapping("/api/evidence/{id}/versions")
     public List<EvidenceDto> history(@PathVariable UUID id, @AuthenticationPrincipal User currentUser) {
         return evidenceService.history(id, currentUser.getId());

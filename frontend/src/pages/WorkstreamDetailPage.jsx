@@ -7,6 +7,7 @@ import * as factsApi from '../api/facts';
 import * as evidenceApi from '../api/evidence';
 import * as issuesApi from '../api/issues';
 import * as candidateFactsApi from '../api/candidateFacts';
+import * as aiApi from '../api/ai';
 import FactForm from '../components/FactForm';
 import ImpactNotice from '../components/ImpactNotice';
 import EvidenceUploadForm from '../components/EvidenceUploadForm';
@@ -294,6 +295,17 @@ export default function WorkstreamDetailPage() {
     }
   }
 
+  async function handleAcceptClassification(evidenceId) {
+    try {
+      await aiApi.acceptEvidenceClassification(evidenceId);
+      toast.success('Accepted AI document classification');
+      await load();
+    } catch (err) {
+      toast.error(`Could not accept classification: ${err.message}`);
+      setError(err.message);
+    }
+  }
+
   function badgeClass(status) {
     return `badge badge-${status.toLowerCase()}`;
   }
@@ -486,7 +498,23 @@ export default function WorkstreamDetailPage() {
           {evidence.map((e) => (
             <tr key={e.id}>
               <td>{e.fileName}</td>
-              <td>{humanize(e.documentType)}</td>
+              <td>
+                <div>{humanize(e.documentType)}</div>
+                {e.suggestedDocumentType && e.suggestedDocumentType !== e.documentType && (
+                  <div className="ai-suggestion-box">
+                    <span className="badge badge-ai" title="AI Document Classification Suggestion">
+                      🤖 {humanize(e.suggestedDocumentType)}
+                    </span>
+                    <button
+                      type="button"
+                      className="button-tiny"
+                      onClick={() => handleAcceptClassification(e.id)}
+                    >
+                      Accept
+                    </button>
+                  </div>
+                )}
+              </td>
               <td className="hint">{e.fileSha256 ? `${e.fileSha256.slice(0, 12)}...` : '—'}</td>
               <td>
                 <span className={badgeClass(e.processingStatus)}>{humanize(e.processingStatus)}</span>

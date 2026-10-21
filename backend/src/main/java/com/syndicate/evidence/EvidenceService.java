@@ -149,6 +149,22 @@ public class EvidenceService {
         return EvidenceDto.from(evidence);
     }
 
+    @Transactional
+    public EvidenceDto acceptClassification(UUID evidenceId, User caller) {
+        Evidence evidence = findEvidence(evidenceId);
+        workstreamService.requireAccess(evidence.getWorkstream().getId(), caller.getId());
+        if (evidence.getSuggestedDocumentType() == null) {
+            throw new BadRequestException("No suggested classification for this evidence");
+        }
+        String previousType = evidence.getDocumentType().name();
+        evidence.acceptSuggestedDocumentType(caller, "Classification accepted by reviewer");
+        auditService.record(evidence.getWorkstream().getTransaction().getId(), caller,
+                AuditAction.EVIDENCE_CLASSIFIED, "Evidence", evidence.getId(),
+                "Accepted AI classification as " + evidence.getDocumentType(), previousType,
+                evidence.getDocumentType().name(), null);
+        return EvidenceDto.from(evidence);
+    }
+
     public List<EvidenceDto> history(UUID evidenceId, UUID callerId) {
         Evidence evidence = findEvidence(evidenceId);
         workstreamService.requireAccess(evidence.getWorkstream().getId(), callerId);

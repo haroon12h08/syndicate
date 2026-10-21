@@ -27,7 +27,9 @@ public record CandidateFactDto(
         String reviewNote,
         UserDto reviewedBy,
         Instant reviewedAt,
-        UUID resultingFactId
+        UUID resultingFactId,
+        UUID aiArtifactId,
+        Double confidence
 ) {
     public static CandidateFactDto from(CandidateFact c) {
         return new CandidateFactDto(
@@ -49,7 +51,9 @@ public record CandidateFactDto(
                 c.getReviewNote(),
                 c.getReviewedByUser() != null ? UserDto.from(c.getReviewedByUser()) : null,
                 c.getReviewedAt(),
-                c.getResultingFact() != null ? c.getResultingFact().getId() : null
+                c.getResultingFact() != null ? c.getResultingFact().getId() : null,
+                c.getAiArtifact() != null ? c.getAiArtifact().getId() : null,
+                c.getConfidence()
         );
     }
 }

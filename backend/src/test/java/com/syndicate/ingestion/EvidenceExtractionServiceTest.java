@@ -34,6 +34,9 @@ class EvidenceExtractionServiceTest {
     @Mock PageImageCache pageImageCache;
     @Mock org.springframework.context.ApplicationEventPublisher eventPublisher;
     @Mock Workstream workstream;
+    @Mock com.syndicate.ai.runs.ExtractionRunService extractionRunService;
+    @Mock com.syndicate.ai.classification.AiDocumentClassifier aiDocumentClassifier;
+    @Mock com.syndicate.ai.extraction.AiCandidateFactExtractor aiCandidateFactExtractor;
 
     EvidenceExtractionService service;
     UUID evidenceId;
@@ -42,7 +45,8 @@ class EvidenceExtractionServiceTest {
     @BeforeEach
     void setUp() {
         service = new EvidenceExtractionService(evidenceRepository, candidateFactRepository, fileStorageService,
-                pdfLayoutParser, tesseractOcrRunner, candidateFactMatcher, pageImageCache, eventPublisher);
+                pdfLayoutParser, tesseractOcrRunner, candidateFactMatcher, pageImageCache, eventPublisher,
+                extractionRunService, aiDocumentClassifier, aiCandidateFactExtractor);
         evidenceId = UUID.randomUUID();
         evidence = mock(Evidence.class);
         // getId()/getWorkstream() are only exercised by the success-path test that reaches
@@ -53,6 +57,11 @@ class EvidenceExtractionServiceTest {
         com.syndicate.transaction.Transaction transaction = mock(com.syndicate.transaction.Transaction.class);
         lenient().when(transaction.getId()).thenReturn(UUID.randomUUID());
         lenient().when(workstream.getTransaction()).thenReturn(transaction);
+        lenient().when(extractionRunService.startRun(any(), any()))
+                .thenReturn(new com.syndicate.ai.runs.ExtractionRun(evidence, com.syndicate.ai.runs.ExtractionRunType.DETERMINISTIC));
+        lenient().when(aiCandidateFactExtractor.extract(any(), any(), anyInt(), anyInt()))
+                .thenReturn(new com.syndicate.ai.extraction.ExtractedCandidateResult(List.of(), null));
+        lenient().when(fileStorageService.readBytes(any())).thenReturn(new byte[0]);
         when(evidenceRepository.findById(evidenceId)).thenReturn(Optional.of(evidence));
     }
 

@@ -1,0 +1,25 @@
+You are an expert financial analyst performing evidence grounding for IPO disclosures (DRHP / RHP).
+Extract key financial and corporate governance candidate facts from the provided evidence document content.
+Focus on material items such as Revenue, EBITDA, PAT / Net Profit, Share Capital, Total Debt, Borrowings, Authorized Capital, Resolution Dates.
+
+Document File Name: {{fileName}}
+Document Type: {{documentType}}
+Document Content by Page:
+{{content}}
+
+Respond strictly in valid JSON format matching this schema:
+{
+  "candidates": [
+    {
+      "label": "<FACT_LABEL>",
+      "value": "<NORMALIZED_OR_EXACT_VALUE>",
+      "period": "<FINANCIAL_PERIOD_IF_APPLICABLE_E_G_FY2026>",
+      "pageNumber": <1_BASED_PAGE_NUMBER>,
+      "confidence": <FLOAT_BETWEEN_0_AND_1>,
+      "bboxX": <APPROX_OR_EXACT_X_COORD>,
+      "bboxY": <APPROX_OR_EXACT_Y_COORD>,
+      "bboxWidth": <APPROX_OR_EXACT_WIDTH>,
+      "bboxHeight": <APPROX_OR_EXACT_HEIGHT>
+    }
+  ]
+}

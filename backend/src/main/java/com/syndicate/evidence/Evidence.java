@@ -60,6 +60,13 @@ public class Evidence extends BaseEntity {
     @Column(name = "processing_error", columnDefinition = "TEXT")
     private String processingError;
 
+    @Column(name = "suggested_document_type", length = 64)
+    private String suggestedDocumentType;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "classification_ai_artifact_id")
+    private com.syndicate.ai.artifact.AiArtifact classificationAiArtifact;
+
     @Column(name = "lineage_id", nullable = false, updatable = false)
     private UUID lineageId;
 
@@ -261,5 +268,30 @@ public class Evidence extends BaseEntity {
 
     public void setProcessingError(String processingError) {
         this.processingError = processingError;
+    }
+
+    public String getSuggestedDocumentType() {
+        return suggestedDocumentType;
+    }
+
+    public void setSuggestedDocumentType(String suggestedDocumentType) {
+        this.suggestedDocumentType = suggestedDocumentType;
+    }
+
+    public com.syndicate.ai.artifact.AiArtifact getClassificationAiArtifact() {
+        return classificationAiArtifact;
+    }
+
+    public void setClassificationAiArtifact(com.syndicate.ai.artifact.AiArtifact classificationAiArtifact) {
+        this.classificationAiArtifact = classificationAiArtifact;
+    }
+
+    public void acceptSuggestedDocumentType(User reviewer, String note) {
+        if (this.suggestedDocumentType != null) {
+            this.documentType = EvidenceDocumentType.valueOf(this.suggestedDocumentType);
+            if (this.classificationAiArtifact != null) {
+                this.classificationAiArtifact.accept(reviewer, note, "Evidence", this.getId());
+            }
+        }
     }
 }

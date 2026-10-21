@@ -43,6 +43,9 @@ public class EvidenceExtractionService {
     private final CandidateFactMatcher candidateFactMatcher;
     private final PageImageCache pageImageCache;
     private final org.springframework.context.ApplicationEventPublisher eventPublisher;
+    private final com.syndicate.ai.runs.ExtractionRunService extractionRunService;
+    private final com.syndicate.ai.classification.AiDocumentClassifier aiDocumentClassifier;
+    private final com.syndicate.ai.extraction.AiCandidateFactExtractor aiCandidateFactExtractor;
 
     public EvidenceExtractionService(EvidenceRepository evidenceRepository,
                                       CandidateFactRepository candidateFactRepository,
@@ -51,7 +54,10 @@ public class EvidenceExtractionService {
                                       TesseractOcrRunner tesseractOcrRunner,
                                       CandidateFactMatcher candidateFactMatcher,
                                       PageImageCache pageImageCache,
-            org.springframework.context.ApplicationEventPublisher eventPublisher) {
+                                      org.springframework.context.ApplicationEventPublisher eventPublisher,
+                                      com.syndicate.ai.runs.ExtractionRunService extractionRunService,
+                                      com.syndicate.ai.classification.AiDocumentClassifier aiDocumentClassifier,
+                                      com.syndicate.ai.extraction.AiCandidateFactExtractor aiCandidateFactExtractor) {
         this.evidenceRepository = evidenceRepository;
         this.candidateFactRepository = candidateFactRepository;
         this.fileStorageService = fileStorageService;
@@ -60,6 +66,9 @@ public class EvidenceExtractionService {
         this.candidateFactMatcher = candidateFactMatcher;
         this.pageImageCache = pageImageCache;
         this.eventPublisher = eventPublisher;
+        this.extractionRunService = extractionRunService;
+        this.aiDocumentClassifier = aiDocumentClassifier;
+        this.aiCandidateFactExtractor = aiCandidateFactExtractor;
     }
 
     @Transactional(noRollbackFor = Exception.class)
@@ -104,7 +113,7 @@ public class EvidenceExtractionService {
                     allTokens.addAll(page.tokens);
                 }
             }
-            persistCandidates(evidence, candidateFactMatcher.match(allTokens), pageImages);
+            executeExtractionPipeline(evidence, allTokens, pageImages);
 
         } else if (contentType != null && contentType.startsWith("image/")) {
             BufferedImage image = ImageIO.read(new ByteArrayInputStream(content));
@@ -114,7 +123,20 @@ public class EvidenceExtractionService {
             List<DocumentToken> tokens = tesseractOcrRunner.run(content, 1, image.getWidth(), image.getHeight());
             ByteArrayOutputStream pngOut = new ByteArrayOutputStream();
             ImageIO.write(image, "png", pngOut);
-            persistCandidates(evidence, candidateFactMatcher.match(tokens), Map.of(1, pngOut.toByteArray()));
+            executeExtractionPipeline(evidence, tokens, Map.of(1, pngOut.toByteArray()));
+
+        } else if ("text/plain".equals(contentType)) {
+            String text = new String(content, java.nio.charset.StandardCharsets.UTF_8);
+            List<DocumentToken> tokens = new ArrayList<>();
+            String[] lines = text.split("\r?\\n");
+            double y = 20.0;
+            for (String line : lines) {
+                if (!line.isBlank()) {
+                    tokens.add(new DocumentToken(line, 1, 50.0, y, 400.0, 15.0, 1000, 1400, CandidateFactSource.TEXT_LAYER));
+                    y += 20.0;
+                }
+            }
+            executeExtractionPipeline(evidence, tokens, Map.of());
 
         } else {
             evidence.setProcessingStatus(ProcessingStatus.NOT_APPLICABLE);
@@ -143,7 +165,7 @@ public class EvidenceExtractionService {
         }
     }
 
-    private void persistCandidates(Evidence evidence, List<MatchedCandidate> matches, Map<Integer, byte[]> pageImages) {
+    private void executeExtractionPipeline(Evidence evidence, List<DocumentToken> tokens, Map<Integer, byte[]> pageImages) {
         if (pageImages != null) {
             pageImages.forEach((pageNumber, pngBytes) -> {
                 if (pngBytes != null && !pageImageCache.exists(evidence.getId(), pageNumber)) {
@@ -151,11 +173,58 @@ public class EvidenceExtractionService {
                 }
             });
         }
-        for (MatchedCandidate m : matches) {
-            candidateFactRepository.save(toCandidateFact(evidence, m));
+
+        int totalCandidates = 0;
+
+        // 1. Deterministic Pass
+        long detStart = System.currentTimeMillis();
+        com.syndicate.ai.runs.ExtractionRun detRun = extractionRunService.startRun(evidence, com.syndicate.ai.runs.ExtractionRunType.DETERMINISTIC);
+        try {
+            List<MatchedCandidate> matches = candidateFactMatcher.match(tokens);
+            for (MatchedCandidate m : matches) {
+                candidateFactRepository.save(toCandidateFact(evidence, m));
+            }
+            totalCandidates += matches.size();
+            long detDuration = Math.max(1, System.currentTimeMillis() - detStart);
+            extractionRunService.completeRun(detRun, matches.size(), null, detDuration);
+        } catch (Exception e) {
+            long detDuration = Math.max(1, System.currentTimeMillis() - detStart);
+            extractionRunService.failRun(detRun, e.getMessage(), detDuration);
+            throw e;
         }
+
+        // 2. AI Augmentation Pass (Fault-tolerant, non-blocking)
+        long aiStart = System.currentTimeMillis();
+        com.syndicate.ai.runs.ExtractionRun aiRun = extractionRunService.startRun(evidence, com.syndicate.ai.runs.ExtractionRunType.AI);
+        try {
+            // AI Document Classification (if needed)
+            if (evidence.getDocumentType() == null || evidence.getDocumentType() == com.syndicate.evidence.EvidenceDocumentType.OTHER) {
+                String fullText = tokens.stream().map(DocumentToken::text).collect(java.util.stream.Collectors.joining(" "));
+                aiDocumentClassifier.classify(evidence, fullText);
+            }
+
+            // AI Candidate Fact Extraction
+            int defaultW = !tokens.isEmpty() ? tokens.get(0).pageImageWidth() : 1000;
+            int defaultH = !tokens.isEmpty() ? tokens.get(0).pageImageHeight() : 1400;
+            com.syndicate.ai.extraction.ExtractedCandidateResult aiResult =
+                    aiCandidateFactExtractor.extract(evidence, tokens, defaultW, defaultH);
+
+            for (CandidateFact cf : aiResult.candidateFacts()) {
+                candidateFactRepository.save(cf);
+            }
+
+            totalCandidates += aiResult.candidateFacts().size();
+            long aiDuration = Math.max(1, System.currentTimeMillis() - aiStart);
+            extractionRunService.completeRun(aiRun, aiResult.candidateFacts().size(), aiResult.artifact(), aiDuration);
+        } catch (Exception e) {
+            log.warn("AI extraction augmentation failed for evidence {}: {}", evidence.getId(), e.getMessage());
+            long aiDuration = Math.max(1, System.currentTimeMillis() - aiStart);
+            extractionRunService.failRun(aiRun, e.getMessage(), aiDuration);
+            // Fault-tolerance invariant: deterministic candidates remain saved and evidence processing completes!
+        }
+
         evidence.setProcessingStatus(ProcessingStatus.COMPLETE);
-        publishStatus(evidence, matches.size());
+        publishStatus(evidence, totalCandidates);
     }
 
     private CandidateFact toCandidateFact(Evidence evidence, MatchedCandidate m) {
