@@ -32,11 +32,14 @@ Version 0.1.0 · October 2026 · Reference implementation: Indian SME IPO
 > determine what else is invalidated when it changes.
 >
 > Syndicate is an implemented system that holds this state explicitly. Source documents are
-> preserved and hashed; machine extraction produces *candidates*, never facts; a fact enters the
-> transaction only by human acceptance and becomes authoritative only on independent verification;
-> contradictions between sources are raised, blocked and resolved by a named person with a recorded
-> reason; the offer document is compiled from verified facts and refuses to compile otherwise; and
-> every filing artefact carries a manifest identifying the exact state that produced it.
+> preserved, hashed, and spatially grounded; machine extraction and LLM assistance produce *candidates*,
+> never authoritative facts (Zero AI Authority); every AI interaction immutably logs prompt template
+> hashes, token economics, and confidence metrics; a fact enters the transaction only by human acceptance
+> and becomes authoritative only on independent verification; contradictions between sources are raised,
+> blocked and resolved by a named person with a recorded reason; the offer document compiles directly to
+> provenance-stamped PDF and DOCX from verified facts and refuses to compile otherwise; regulatory
+> resubmissions track version diffs and formal statements of changes; and every filing artefact carries
+> a cryptographically verifiable Merkle manifest identifying the exact state that produced it.
 >
 > The report describes the object model (§3), the implementation (§4), an operational walkthrough
 > with figures (§5), the verification strategy and its results (§6), and the deployment model (§7).
@@ -106,11 +109,15 @@ document layer.
 This repository contains a working system, not a proposal. Specifically:
 
 - an explicit object model separating evidence, candidates, facts, disclosures and documents (§3);
+- visual spatial evidence grounding with interactive bounding-box overlays and bidirectional DRHP clickthrough (§3.4, §5.10);
+- an AI intelligence layer strictly bounded by Zero AI Authority, recording immutable prompt template SHA-256 hashes, token economics, and classification suggestions (§3.5, §5.11);
+- structured document export to PDF and DOCX with running SEBI-compliant headers and provenance stamps (§5.12);
+- regulatory resubmission tracking with automated filing package diffing and statements of changes (§5.13);
 - a dependency graph over relational tables, with change-impact analysis computed from persisted
   relationships rather than assumptions (§3.3);
-- enforcement of the verification boundary in service logic, database constraints and tests (§6.2);
+- enforcement of the verification and AI authority boundaries in service logic, database constraints and ArchUnit rules (§6.2);
 - a filing package carrying a Merkle manifest of the exact state that produced it (§5.7);
-- 134 automated tests, including a golden-path test that drives an entire transaction through the
+- 152 automated tests, including a golden-path test that drives an entire transaction through the
   public API from empty deal to provenance-backed document (§6).
 
 ---
@@ -123,7 +130,7 @@ each one.
 | # | Principle | Consequence in the system |
 |---|-----------|---------------------------|
 | P1 | Preserve the source | Evidence is content-addressed, hashed, write-once; deletion is replaced by archival |
-| P2 | Separate observation from truth | Extraction yields candidates; only a person creates a fact |
+| P2 | Separate observation from truth (Zero AI Authority) | Extraction and LLM models yield candidates; only a person creates a fact; models cannot write to verified state |
 | P3 | Material facts need a second pair of eyes | A material fact cannot be verified by whoever recorded it |
 | P4 | Never silently resolve a contradiction | Conflicts block verification until a person records a decision and a reason |
 | P5 | Version material state | Corrections create versions; prior values are retained, never overwritten |
@@ -140,17 +147,17 @@ each one.
 ### 3.1 The chain
 
 ```
-Evidence ──▶ Candidate Fact ──▶ Fact ──▶ Disclosure ──▶ Document ──▶ Filing package
-    │            (machine)      (human)       │             │              │
-    │                                          │             │              │
-    └──────────── hashed, versioned ───────────┴── dependency graph ────────┘
-                                                        │
-                            Reviews · Approvals · Conflicts · Observations
+Evidence ──▶ Ingestion / AI ──▶ Candidate Fact ──▶ Fact ──▶ Disclosure ──▶ Document ──▶ Filing package
+    │        (ai_artifacts)     (machine / AI)    (human)       │             │              │
+    │                                                           │             │              │
+    └───────────── hashed, versioned, spatially grounded ───────┴── dependency graph ────────┘
+                                                                      │
+                                          Reviews · Approvals · Conflicts · Observations · Resubmissions
 ```
 
 Each arrow is a boundary with a rule attached. The arrow from **Candidate** to **Fact** is the one
-the rest of the system is built to protect: machine output is a proposal with a page region
-attached, and a person must accept it. The arrow from **Fact** to **Disclosure** is the one that
+the rest of the system is built to protect: machine or LLM output is strictly a proposal with a page region
+attached, and an authorized person must inspect and accept it. The arrow from **Fact** to **Disclosure** is the one that
 makes change tractable: the disclosure records the fact version it quoted.
 
 ### 3.2 Facts
@@ -183,6 +190,24 @@ Because it is a view, the graph cannot drift from the links it describes, and st
 in SQL rather than maintained by application code. Traversal is breadth-first, cycle-safe and
 confined to one transaction. Everything downstream of a change — §5.8 — comes from this view.
 
+### 3.4 Spatial evidence grounding
+
+Every extracted candidate fact and verified fact retains a spatial bounding-box anchor `(page_number, box_x, box_y, box_width, box_height)` in a normalized 1000×1000 coordinate space. Normalization guarantees that bounding highlights render identically across arbitrary screen resolutions, device pixel ratios, and PDF viewport scales. The frontend provides high-DPI canvas rendering with SVG highlight overlays, allowing instant bidirectional navigation: clicking an extracted fact chip in the DRHP viewer jumps directly to the source page and scrolls the bounding box into view.
+
+### 3.5 AI artifacts and the Zero AI Authority boundary
+
+Machine learning models (Anthropic Claude 3.5 Sonnet / Haiku or local deterministic fallbacks) operate strictly outside the authoritative boundary. All AI operations — document classification suggestions and candidate fact extraction from financial statements or board resolutions — record immutable provenance records in the `ai_artifacts` table:
+- **Model identity**: e.g., `claude-3-5-sonnet-20241022` or `mock-deterministic-v1`.
+- **Prompt reproducibility**: SHA-256 hash of the versioned prompt template.
+- **Economic accounting**: Prompt tokens, completion tokens, total tokens, and USD cost.
+- **Input lineage**: SHA-256 hashes and UUIDs of the source evidence documents.
+- **Confidence & payload**: Model confidence rating (0.00–1.00) and raw JSON response.
+
+Crucially, **Zero AI Authority** is enforced at multiple architectural layers:
+1. *Database constraints*: Foreign keys and table schemas restrict AI services to writing only to `ai_artifacts`, `extraction_runs`, and `candidate_facts`.
+2. *Service barriers*: Verified facts, audit logs, reviews, and filing approvals have no write APIs exposed to AI workers.
+3. *ArchUnit tests*: An automated architecture test (`AiArchitectureTest`) verifies that no class in `com.syndicate.ai` depends upon or calls mutation methods on authoritative fact or approval repositories.
+
 ---
 
 ## 4. Implementation
@@ -196,10 +221,11 @@ cannot be stored and then silently never processed.
 
 | Layer | Technology | Notes |
 |-------|-----------|-------|
-| API, domain, workers | Java 17, Spring Boot 3.3 | Single process; 33 modules under `com.syndicate` |
-| Persistence | PostgreSQL 16, Flyway | 26 migrations, `V1`–`V26`; `ddl-auto=validate` |
-| Extraction | Apache PDFBox, Tesseract OCR | Text layer first, OCR fallback, spatial anchors retained |
-| Front end | React 19, Vite 8 | Compiled into the API's static resources — one origin, no CORS |
+| API, domain, workers | Java 17, Spring Boot 3.3 | Single process; 39 modules under `com.syndicate` |
+| Persistence | PostgreSQL 16, Flyway | 27 migrations, `V1`–`V27`; `ddl-auto=validate` |
+| Extraction & AI | Apache PDFBox, Tesseract OCR, Claude 3.5 | Text layer first, OCR fallback, AI extraction bounded by Zero AI Authority |
+| Document Rendering | OpenPDF, Apache POI | SEBI-compliant PDF and DOCX export with cryptographic provenance stamps |
+| Front end | React 19, Vite 8, PDF.js | High-DPI canvas PDF viewer with SVG bounding-box highlights; compiled into API |
 | Packaging | Docker, Compose | Two containers: the product and its database |
 
 ### 4.2 Module map
@@ -207,9 +233,10 @@ cannot be stored and then silently never processed.
 | Area | Modules |
 |------|---------|
 | Evidence and ingestion | `evidence`, `ingestion`, `candidatefact`, `jobs` |
+| AI and Intelligence | `ai.artifact`, `ai.llm`, `ai.classification`, `ai.extraction`, `ai.runs` |
 | Transaction truth | `fact`, `conflict`, `review`, `graph` |
 | Diligence and control | `diligence`, `workbench`, `regulatory`, `issue`, `task` |
-| Output | `drhp`, `provenance`, `filing`, `observation`, `lifecycle` |
+| Output and Exports | `drhp` (incl. `render`), `provenance`, `filing` (incl. `resubmission`), `observation`, `lifecycle` |
 | Identity and access | `auth`, `user`, `organization`, `transaction`, `permission`, `invitation` |
 | Cross-cutting | `audit`, `notification`, `registry`, `common`, `stream`, `onboarding` |
 
@@ -217,11 +244,11 @@ cannot be stored and then silently never processed.
 
 | Measure | Value |
 |---------|-------|
-| Backend source files | 293 |
-| HTTP endpoints | 112 |
-| Database migrations | 26 |
-| Front-end source files | 68 |
-| Automated tests | 134 (33 unit, 101 integration) |
+| Backend source files | 323 |
+| HTTP endpoints | 131 |
+| Database migrations | 27 |
+| Front-end source files | 72 |
+| Automated tests | 152 (37 unit, 115 integration) |
 
 ---
 
@@ -320,9 +347,40 @@ describes.
 <p align="center"><img src="docs/assets/figures/fig10-audit.png" alt="Audit trail" width="860"></p>
 <p align="center"><em><strong>Figure 10.</strong> Who did what, against which version, and why.</em></p>
 
-### 5.10 Demonstration
+### 5.10 Spatial evidence grounding
 
-A five-minute walkthrough of the above, recorded against the running system, is produced by
+The visual loop between primary evidence and draft disclosures is completed with an interactive, high-DPI canvas PDF viewer. When viewing uploaded documents, bounding-box overlays visually highlight candidate facts in amber and verified facts in emerald across multi-page filings.
+
+Clicking any fact chip or citation in the compiled DRHP viewer jumps directly to the source page, highlights the bounding box, and scrolls the exact snippet into view. Diligence reviewers can inspect and accept or reject machine candidates directly within the document viewer while viewing the surrounding textual and tabular context.
+
+<p align="center"><img src="docs/assets/figures/fig11-spatial-evidence.png" alt="Spatial evidence grounding viewer" width="860"></p>
+<p align="center"><em><strong>Figure 11.</strong> Interactive PDF viewer with spatial bounding boxes (amber for candidates, emerald for verified facts) and bidirectional DRHP fact clickthrough.</em></p>
+
+### 5.11 AI intelligence layer bounded by Zero AI Authority
+
+Syndicate introduces machine learning capabilities strictly as non-authoritative suggestions:
+1. **Document classification**: Uploaded evidence is parsed and compared against workstream objectives, suggesting appropriate document types (e.g., audited financials, board resolutions) without human data-entry overhead.
+2. **Candidate fact extraction**: Financial statements and resolutions are analyzed by Anthropic Claude 3.5 Sonnet / Haiku (with deterministic mock fallback), extracting candidate values with normalized keys and spatial bounding coordinates.
+
+Every extraction and classification run logs an immutable entry in the `ai_artifacts` table. The user interface provides a dedicated **AI Provenance** inspector revealing model parameters, completion tokens, prompt template SHA-256 hashes, source document hashes, and estimated costs in USD.
+
+<p align="center"><img src="docs/assets/figures/fig12-ai-candidates.png" alt="AI candidate fact extraction" width="860"></p>
+<p align="center"><em><strong>Figure 12.</strong> AI-extracted candidate facts displaying source model badges, token economics, and confidence ratings awaiting human review.</em></p>
+
+<p align="center"><img src="docs/assets/figures/fig13-ai-provenance.png" alt="AI artifact provenance inspector" width="860"></p>
+<p align="center"><em><strong>Figure 13.</strong> AI provenance inspector revealing prompt template SHA-256 hash, token accounting, source hashes, and raw model response.</em></p>
+
+### 5.12 Structured document rendering with provenance stamps
+
+Compiled offer documents export directly to production-grade PDF and DOCX formats (Spec §25, Ticket E6). Output files feature SEBI-compliant cover pages, risk factor tables, running headers/footers, and SHA-256 provenance verification stamps embedding transaction lineage directly in the document footer.
+
+### 5.13 Regulatory resubmission tracking and version diffing
+
+In response to regulatory observations (SEBI/BSE), filing packages can be versioned and resubmitted (Spec §24, Ticket F4). The system computes an automated semantic diff between filing package versions, identifying added, removed, and modified disclosures and fact values, and generates an auditable Statement of Changes required for formal resubmissions.
+
+### 5.14 Demonstration
+
+A walkthrough of the above, recorded against the running system, is produced by
 [`demo/record-demo.mjs`](demo/record-demo.mjs); the narration is in
 [`demo/voiceover-script.md`](demo/voiceover-script.md).
 
@@ -338,13 +396,14 @@ and transaction boundaries as a user.
 
 | Layer | Count | What it covers |
 |-------|-------|----------------|
-| Unit | 33 | Value normalisation, PDF geometry, OCR parsing, readiness derivation, checksums |
-| Integration | 101 | Every workflow through the API, against real Postgres |
+| Unit | 37 | Value normalisation, PDF geometry, OCR parsing, readiness derivation, checksums, document rendering, AI architecture |
+| Integration | 115 | Every workflow through the API, against real Postgres |
 | — of which security | 12 | Cross-organisation isolation, role matrix (12 roles), sessions, upload safety |
 | — of which end-to-end | 3 | Golden path, filing package, lifecycle |
+| — of which AI & invariants | 14 | Zero AI Authority, AI artifact provenance, candidate boundaries, spatial grounding, resubmissions |
 
 ```bash
-cd backend && ./mvnw verify        # unit + integration (requires Docker)
+cd backend && mvn verify        # unit + integration (requires Docker)
 cd frontend && npm run lint && npm run build
 ```
 
@@ -353,13 +412,15 @@ cd frontend && npm run lint && npm run build
 | Principle | Test |
 |-----------|------|
 | P1 Preserve the source | `EvidenceCustodyIT` — versioning, archival refusal while referenced, integrity re-hash |
-| P2 Observation ≠ truth | `CandidateBoundaryIT` — acceptance yields a draft fact, never a verified one |
+| P2 Observation ≠ truth (Zero AI Authority) | `CandidateBoundaryIT` — acceptance yields a draft fact, never a verified one; `AiArchitectureTest` — ArchUnit enforces zero AI write paths to verified state; `AiArtifactProvenanceIT` — immutable prompt SHA-256 and token economics |
 | P3 Second pair of eyes | `CandidateBoundaryIT` — service refusal *and* a `CHECK` constraint |
 | P4 No silent resolution | `OwnershipConflictIT` — the full §65 scenario, including reopening |
 | P5 Versioning | `FactSemanticKeyIT`, `ConcurrentCorrectionIT` — lineage kept; racing corrections cannot both win |
 | P6/P7 Dependencies and staleness | `ChangePropagationIT`, `ImpactPreviewIT` |
-| P8 Fail-closed compilation | `GoldenPathIT`, `FilingPackageIT` |
+| P8 Fail-closed compilation & Export | `GoldenPathIT`, `FilingPackageIT`, `DrhpExportIT`, `DocumentRenderTest` — export with cryptographic provenance stamps |
 | P9 Explainability | `WorkbenchIT`, `DerivedReadinessTest` |
+| Spatial grounding | `SpatialGroundingIT`, `PdfCoordinateConverterTest`, `PdfLayoutParserTest` — 1000×1000 coordinate normalization, multi-page bounding boxes |
+| Resubmission diffing | `ResubmissionIT` — filing package version diffing, statement of changes generation |
 | Audit integrity | `AuditIntegrityIT` — trigger refusal, chain verification, tamper detection |
 | Access control | `TenantIsolationIT`, `RolePermissionIT`, `SessionIT`, `PublicSurfaceIT` |
 
@@ -390,7 +451,7 @@ migrations, and refuses to report success until the application is actually serv
 For development with hot reload:
 
 ```bash
-cd backend && ./mvnw spring-boot:run     # :8080
+cd backend && mvn spring-boot:run     # :8080
 cd frontend && npm install && npm run dev # :5173, proxied to the API
 ```
 
@@ -409,6 +470,7 @@ generates those.
 | `SYNDICATE_SESSION_DAYS` | `14` | Session lifetime |
 | `SYNDICATE_RATE_LIMIT_SIGN_IN` | `10` | Sign-in attempts per window per address |
 | `SYNDICATE_JOBS_ENABLED` | `true` | Set `false` for an API-only instance |
+| `SYNDICATE_ANTHROPIC_API_KEY` | empty (mock fallback) | Anthropic Claude API key; deterministic mock is used when unset |
 
 ### 7.3 Security posture
 
@@ -436,8 +498,12 @@ not a finished regulated product.
    and observability are not built. Public sign-up without them is unwise.
 3. **Domain depth is partial.** Capital structure, related parties, litigation and material contracts
    are modelled as generic facts; first-class entities for them are designed but not implemented.
-4. **No AI layer.** Extraction is deterministic (text layer and OCR). Model-assisted classification,
-   claim extraction and search are specified behind the candidate boundary but not built.
+4. **Strictly bounded AI layer.** AI assistance is implemented for document classification suggestions
+   and candidate fact extraction from financial statements and corporate resolutions (Phase G Tickets G1 & G2).
+   These capabilities are strictly bounded by Zero AI Authority: models output proposals into `candidate_facts`
+   awaiting human review; models cannot write to verified facts, audit logs, or approvals; and prompt template
+   hashes and token costs are immutably logged. Autonomous document drafting, ungrounded generative summaries,
+   and independent agentic authority remain strict non-goals.
 5. **Single-issue type.** Only the Indian SME IPO is modelled.
 6. **Customer validation is incomplete.** The workflows follow published guidance and reasoning about
    the problem; they have not been validated across a sample of live transactions.
@@ -457,7 +523,7 @@ In the order it is likely to be worth doing — the full plan is in
 3. Claims and calculated facts with recorded formulas and stale recomputation.
 4. Versioned regulatory requirements with sourced citations, effective dates and transaction-level
    rule-set pinning.
-5. A model-assisted layer strictly behind the candidate boundary, with per-artefact provenance.
+5. Multi-model consensus and automated tabular cross-reconciliation across disparate auditor reports.
 
 ---
 
@@ -511,6 +577,14 @@ start.sh     One command: build, migrate, run, verify
 | `POST` | `/api/drhp/versions/{id}/approvals` | Approve one exact version |
 | `POST` | `/api/drhp/versions/{id}/filing-package` | Assemble the package |
 | `GET`  | `/api/drhp/versions/{id}/provenance` | Manifest, verified on read |
+| `GET`  | `/api/drhp/versions/{id}/export/pdf` | Export compiled DRHP as provenance-stamped PDF |
+| `GET`  | `/api/drhp/versions/{id}/export/docx` | Export compiled DRHP as structured Word document |
+| `GET`  | `/api/evidence/{id}/manifest` | Spatial evidence manifest with multi-page dimensions |
+| `POST` | `/api/workstreams/{id}/evidence/classify` | AI document classification suggestion |
+| `POST` | `/api/workstreams/{id}/evidence/{id}/extract-ai` | AI candidate fact extraction with spatial grounding |
+| `GET`  | `/api/ai/artifacts/{id}` | Inspect AI artifact provenance (model, prompt hash, tokens) |
+| `GET`  | `/api/ai/provenance/metrics` | Aggregate AI token economics, costs, and run counts |
+| `GET`  | `/api/filing/packages/{id}/diff/{otherId}` | Diff two filing packages and generate Statement of Changes |
 | `GET`  | `/api/transactions/{id}/audit/verify` | Recompute the audit chain |
 
 ## Appendix C — Glossary
@@ -524,13 +598,16 @@ start.sh     One command: build, migrate, run, verify
 | **Disclosure** | A section of the offer document, citing facts by key |
 | **Blocker** | A concrete reason the transaction cannot be submitted, with its next action |
 | **Filing package** | Document, evidence index, provenance manifest and approval certificate |
+| **AI Artifact** | Immutable record of an LLM invocation (model, prompt hash, tokens, cost, confidence, inputs) |
+| **Spatial Anchor** | Normalized bounding box `(page, x, y, width, height)` linking a fact to its visual source snippet |
+| **Statement of Changes** | Structured diff between filing packages recording added, deleted, or altered disclosures |
 
 ---
 
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md). In short: the invariants in §2 are not negotiable, a change
-that touches transaction state needs a test that would fail without it, and `./mvnw verify` must pass
+that touches transaction state needs a test that would fail without it, and `mvn verify` must pass
 before review.
 
 ## Security
