@@ -1,21 +1,29 @@
 import { useState } from 'react';
+import toast from 'react-hot-toast';
 import { humanize } from '../constants';
+import * as aiApi from '../api/ai';
+import AiProvenanceModal from './AiProvenanceModal';
 
-const STATUS_BADGE = {
-  OPEN: 'badge badge-failed',
-  RESPONSE_DRAFTED: 'badge badge-pending',
-  RESPONSE_APPROVED: 'badge badge-processing',
-  RESPONDED: 'badge badge-complete',
-  CLOSED: 'badge badge-not_applicable',
-};
-
-function today() {
-  return new Date().toISOString().slice(0, 10);
+function observationBadge(status) {
+  if (status === 'CLOSED') return 'badge badge-complete';
+  if (status === 'RESPONSE_APPROVED') return 'badge badge-complete';
+  if (status === 'RESPONSE_DRAFTED') return 'badge badge-pending';
+  if (status === 'OPEN') return 'badge badge-failed';
+  return 'badge badge-not_applicable';
 }
 
+const EMPTY_RECORD = {
+  authority: 'BSE',
+  reference: '',
+  receivedDate: new Date().toISOString().slice(0, 10),
+  responseDeadline: '',
+  observation: '',
+  sectionCode: '',
+  severity: 'HIGH',
+};
+
 function RecordForm({ onRecord, onCancel }) {
-  const [form, setForm] = useState({ authority: 'BSE', reference: '', receivedDate: today(), observation: '',
-    responseDeadline: '' });
+  const [form, setForm] = useState(EMPTY_RECORD);
   const [saving, setSaving] = useState(false);
   const update = (field) => (e) => setForm((f) => ({ ...f, [field]: e.target.value }));
 
@@ -24,20 +32,22 @@ function RecordForm({ onRecord, onCancel }) {
       e.preventDefault();
       setSaving(true);
       try {
-        await onRecord({ ...form, responseDeadline: form.responseDeadline || null, reference: form.reference || null });
+        await onRecord({
+          ...form,
+          responseDeadline: form.responseDeadline || null,
+          sectionCode: form.sectionCode || null,
+        });
+        setForm(EMPTY_RECORD);
+        onCancel();
       } finally {
         setSaving(false);
       }
     }}>
-      <label>
-        Raised by
-        <select value={form.authority} onChange={update('authority')}>
-          <option value="BSE">BSE</option>
-          <option value="NSE">NSE</option>
-          <option value="SEBI">SEBI</option>
-        </select>
-      </label>
-      <label>Their reference<input value={form.reference} onChange={update('reference')} placeholder="Optional" /></label>
+      <div className="grid grid-3">
+        <label>Authority<input value={form.authority} onChange={update('authority')} required placeholder="e.g. BSE" /></label>
+        <label>Reference<input value={form.reference} onChange={update('reference')} placeholder="e.g. BSE/LIST/2026/04" /></label>
+        <label>Section<input value={form.sectionCode} onChange={update('sectionCode')} placeholder="e.g. CAPITAL_STRUCTURE" /></label>
+      </div>
       <label>Received<input type="date" value={form.receivedDate} onChange={update('receivedDate')} required /></label>
       <label>Reply by<input type="date" value={form.responseDeadline} onChange={update('responseDeadline')} /></label>
       <label>
@@ -58,7 +68,37 @@ function RespondForm({ observation, facts, evidence, onRespond }) {
   const [factIds, setFactIds] = useState(observation.relatedFactIds || []);
   const [evidenceIds, setEvidenceIds] = useState(observation.relatedEvidenceIds || []);
   const [saving, setSaving] = useState(false);
+  const [drafting, setDrafting] = useState(false);
+  const [aiArtifactId, setAiArtifactId] = useState(null);
+  const [showArtifactModal, setShowArtifactModal] = useState(false);
+
   const toggle = (setter) => (id) => setter((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]));
+
+  const handleAiDraft = async () => {
+    setDrafting(true);
+    try {
+      const draft = await aiApi.draftObservationResponse(observation.id, {
+        userInstructions: 'Draft legally rigorous response grounded in transaction facts and evidence',
+      });
+      if (draft.suggestedResponse) {
+        setResponse(draft.suggestedResponse);
+      }
+      if (draft.suggestedFactIds && draft.suggestedFactIds.length > 0) {
+        setFactIds((prev) => Array.from(new Set([...prev, ...draft.suggestedFactIds])));
+      }
+      if (draft.suggestedEvidenceIds && draft.suggestedEvidenceIds.length > 0) {
+        setEvidenceIds((prev) => Array.from(new Set([...prev, ...draft.suggestedEvidenceIds])));
+      }
+      if (draft.aiArtifactId) {
+        setAiArtifactId(draft.aiArtifactId);
+      }
+      toast.success('AI draft generated with linked facts & evidence');
+    } catch (err) {
+      toast.error('AI Draft failed: ' + (err.message || 'Error'));
+    } finally {
+      setDrafting(false);
+    }
+  };
 
   return (
     <form className="card-form" onSubmit={async (e) => {
@@ -70,27 +110,64 @@ function RespondForm({ observation, facts, evidence, onRespond }) {
         setSaving(false);
       }
     }}>
-      <label>
-        Response
-        <textarea rows={4} value={response} onChange={(e) => setResponse(e.target.value)} required
-          placeholder="The answer that will go back to the authority" />
-      </label>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+        <label style={{ margin: 0 }}><strong>Response</strong></label>
+        <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+          {aiArtifactId && (
+            <button
+              type="button"
+              className="secondary small"
+              onClick={() => setShowArtifactModal(true)}
+              style={{ fontSize: '0.75rem' }}
+            >
+              🔍 AI Provenance
+            </button>
+          )}
+          <button
+            type="button"
+            className="secondary small"
+            onClick={handleAiDraft}
+            disabled={drafting}
+            style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', borderColor: '#8b5cf6', color: '#c084fc' }}
+          >
+            <span>{drafting ? '⏳ Drafting...' : '✨ AI Draft Response'}</span>
+          </button>
+        </div>
+      </div>
+
+      <textarea
+        rows={5}
+        value={response}
+        onChange={(e) => setResponse(e.target.value)}
+        required
+        placeholder="The answer that will go back to the authority. Must cite verified facts and primary evidence."
+      />
+
       <fieldset>
-        <legend>What the answer rests on</legend>
-        {facts.filter((f) => f.status !== 'SUPERSEDED' && f.status !== 'REJECTED').slice(0, 10).map((f) => (
-          <label key={f.id} className="checkbox-label">
-            <input type="checkbox" checked={factIds.includes(f.id)} onChange={() => toggle(setFactIds)(f.id)} />
-            {f.label}: {f.value}{f.unit ? ` ${f.unit}` : ''}
-          </label>
-        ))}
-        {evidence.slice(0, 10).map((e) => (
-          <label key={e.id} className="checkbox-label">
-            <input type="checkbox" checked={evidenceIds.includes(e.id)} onChange={() => toggle(setEvidenceIds)(e.id)} />
-            {e.fileName}
-          </label>
-        ))}
+        <legend>What the answer rests on (select at least one fact or document)</legend>
+        <div style={{ maxHeight: '180px', overflowY: 'auto' }}>
+          {facts.filter((f) => f.status !== 'SUPERSEDED' && f.status !== 'REJECTED').slice(0, 15).map((f) => (
+            <label key={f.id} className="checkbox-label" style={{ fontSize: '0.82rem' }}>
+              <input type="checkbox" checked={factIds.includes(f.id)} onChange={() => toggle(setFactIds)(f.id)} />
+              <span>{f.label}: <strong>{f.value}{f.unit ? ` ${f.unit}` : ''}</strong> ({f.period || 'current'})</span>
+            </label>
+          ))}
+          {evidence.slice(0, 15).map((e) => (
+            <label key={e.id} className="checkbox-label" style={{ fontSize: '0.82rem' }}>
+              <input type="checkbox" checked={evidenceIds.includes(e.id)} onChange={() => toggle(setEvidenceIds)(e.id)} />
+              <span>📄 {e.fileName} ({e.documentType})</span>
+            </label>
+          ))}
+        </div>
       </fieldset>
-      <button type="submit" disabled={saving}>{saving ? 'Saving…' : 'Save response'}</button>
+
+      <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+        <button type="submit" disabled={saving}>{saving ? 'Saving…' : 'Save response'}</button>
+      </div>
+
+      {showArtifactModal && aiArtifactId && (
+        <AiProvenanceModal artifactId={aiArtifactId} onClose={() => setShowArtifactModal(false)} />
+      )}
     </form>
   );
 }
@@ -114,58 +191,56 @@ export default function ObservationsPanel({ observations, facts = [], evidence =
         and the compiled version it was answered against.
       </p>
 
-      {recording && <RecordForm onRecord={async (payload) => { await onRecord(payload); setRecording(false); }}
-        onCancel={() => setRecording(false)} />}
+      {recording && <RecordForm onRecord={onRecord} onCancel={() => setRecording(false)} />}
 
-      {observations.length === 0 && !recording && (
-        <div className="empty-state"><span>No observations have been received.</span></div>
-      )}
-
-      {observations.map((o) => (
-        <article key={o.id} className="conflict-card">
-          <div className="page-header">
-            <h3>{o.authority}{o.reference ? ` · ${o.reference}` : ''}</h3>
-            <span className={STATUS_BADGE[o.status]}>{humanize(o.status)}</span>
-          </div>
-          <p>{o.observation}</p>
-          <div className="hint">
-            Received {o.receivedDate}
-            {o.responseDeadline && <> · reply by {o.responseDeadline}</>}
-            {o.documentVersion && <> · answered against DRHP v{o.documentVersion}</>}
-          </div>
-          {o.response && (
-            <div>
-              <div className="eyebrow">Response</div>
-              <p>{o.response}</p>
-              <div className="hint">
-                Drafted by {o.respondedBy?.fullName}
-                {o.approvedBy && <> · approved by {o.approvedBy.fullName}</>}
-              </div>
+      <div className="card-list">
+        {observations.map((o) => (
+          <div key={o.id} className="card">
+            <div className="card-header">
+              <span className={observationBadge(o.status)}>{humanize(o.status)}</span>
+              <h3>{o.authority}: {o.reference || 'Unreferenced query'}</h3>
+              <span className="card-meta">{o.sectionCode}</span>
             </div>
-          )}
-          {respondingTo === o.id
-            ? <RespondForm observation={o} facts={facts} evidence={evidence}
-                onRespond={async (...args) => { await onRespond(...args); setRespondingTo(null); }} />
-            : (
-              <div className="inline-form">
-                {o.status !== 'CLOSED' && (
-                  <button className="secondary" onClick={() => setRespondingTo(o.id)}>
-                    {o.response ? 'Revise response' : 'Write response'}
-                  </button>
-                )}
-                {o.status === 'RESPONSE_DRAFTED' && o.respondedBy?.id !== currentUserId && (
-                  <button onClick={() => onApprove(o.id)}>Approve response</button>
-                )}
-                {o.status === 'RESPONSE_APPROVED' && (
-                  <button onClick={() => onSent(o.id)}>Record as sent</button>
-                )}
-                {o.status === 'RESPONDED' && (
-                  <button className="secondary" onClick={() => onClose(o.id)}>Close</button>
-                )}
+            <p className="observation-text">{o.observation}</p>
+            <div className="meta-row">
+              Received {o.receivedDate}
+              {o.responseDeadline && <> · reply by {o.responseDeadline}</>}
+              {o.documentVersion && <> · answered against DRHP v{o.documentVersion}</>}
+            </div>
+            {o.response && (
+              <div>
+                <div className="eyebrow">Response</div>
+                <p>{o.response}</p>
+                <div className="hint">
+                  Drafted by {o.respondedBy?.fullName}
+                  {o.approvedBy && <> · approved by {o.approvedBy.fullName}</>}
+                </div>
               </div>
             )}
-        </article>
-      ))}
+            {respondingTo === o.id
+              ? <RespondForm observation={o} facts={facts} evidence={evidence}
+                  onRespond={async (...args) => { await onRespond(...args); setRespondingTo(null); }} />
+              : (
+                <div className="inline-form">
+                  {o.status !== 'CLOSED' && (
+                    <button className="secondary" onClick={() => setRespondingTo(o.id)}>
+                      {o.response ? 'Revise response' : 'Write response'}
+                    </button>
+                  )}
+                  {o.status === 'RESPONSE_DRAFTED' && o.respondedBy?.id !== currentUserId && (
+                    <button onClick={() => onApprove(o.id)}>Approve response</button>
+                  )}
+                  {o.status === 'RESPONSE_APPROVED' && (
+                    <button onClick={() => onSent(o.id)}>Record as sent</button>
+                  )}
+                  {o.status === 'RESPONDED' && (
+                    <button onClick={() => onClose(o.id)}>Close observation</button>
+                  )}
+                </div>
+              )}
+          </div>
+        ))}
+      </div>
     </section>
   );
 }

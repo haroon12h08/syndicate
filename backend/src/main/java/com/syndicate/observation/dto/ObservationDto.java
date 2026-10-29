@@ -13,7 +13,7 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
-public record ObservationDto(UUID id, String authority, String reference, LocalDate receivedDate, String observation,
+public record ObservationDto(UUID id, UUID transactionId, String authority, String reference, LocalDate receivedDate, String observation,
                              String sectionCode, IssueSeverity severity, ObservationStatus status,
                              LocalDate responseDeadline, UserDto owner, String response, UserDto respondedBy,
                              Instant respondedAt, UserDto approvedBy, Instant approvedAt, UUID documentId,
@@ -21,7 +21,7 @@ public record ObservationDto(UUID id, String authority, String reference, LocalD
                              List<UUID> relatedDisclosureIds) {
 
     public static ObservationDto from(RegulatoryObservation o) {
-        return new ObservationDto(o.getId(), o.getAuthority(), o.getReference(), o.getReceivedDate(),
+        return new ObservationDto(o.getId(), o.getTransactionId(), o.getAuthority(), o.getReference(), o.getReceivedDate(),
                 o.getObservation(), o.getSectionCode(), o.getSeverity(), o.getStatus(), o.getResponseDeadline(),
                 o.getOwner() != null ? UserDto.from(o.getOwner()) : null,
                 o.getResponse(),

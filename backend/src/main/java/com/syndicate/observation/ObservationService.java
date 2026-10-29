@@ -71,6 +71,13 @@ public class ObservationService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
+    public ObservationDto get(UUID observationId, UUID callerId) {
+        RegulatoryObservation observation = find(observationId);
+        transactionService.requireMembership(observation.getTransactionId(), callerId);
+        return ObservationDto.from(observation);
+    }
+
     public ObservationDto record(UUID transactionId, RecordObservationRequest request, User caller) {
         transactionService.requireMembership(transactionId, caller.getId());
         User owner = request.ownerUserId() == null ? caller : userRepository.findById(request.ownerUserId())

@@ -35,7 +35,8 @@ public record EvidenceDto(
         UserDto qualityReviewedBy,
         Instant qualityReviewedAt,
         String suggestedDocumentType,
-        UUID classificationAiArtifactId
+        UUID classificationAiArtifactId,
+        String extractedText
 ) {
     public static EvidenceDto from(Evidence evidence) {
         return new EvidenceDto(
@@ -63,7 +64,8 @@ public record EvidenceDto(
                 evidence.getQualityReviewedByUser() != null ? UserDto.from(evidence.getQualityReviewedByUser()) : null,
                 evidence.getQualityReviewedAt(),
                 evidence.getSuggestedDocumentType(),
-                evidence.getClassificationAiArtifact() != null ? evidence.getClassificationAiArtifact().getId() : null
+                evidence.getClassificationAiArtifact() != null ? evidence.getClassificationAiArtifact().getId() : null,
+                evidence.getExtractedText()
         );
     }
 }

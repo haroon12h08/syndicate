@@ -14,7 +14,7 @@ function disclosureBadge(status) {
 const EMPTY_FORM = { sectionCode: '', title: '', bodyTemplate: '', orderIndex: 0, status: 'DRAFT' };
 
 export default function DrhpPanel({
-  disclosures, document: drhpDocument, compileResult, compiling, facts = [],
+  transactionId, disclosures, document: drhpDocument, compileResult, compiling, facts = [],
   onCompile, onCreateDisclosure, onUpdateDisclosure, onInspectProvenance,
 }) {
   const [showForm, setShowForm] = useState(false);
@@ -160,6 +160,10 @@ export default function DrhpPanel({
             <DisclosureBodyEditor
               value={form.bodyTemplate}
               facts={facts}
+              transactionId={transactionId}
+              sectionCode={form.sectionCode}
+              title={form.title}
+              onSuggestedTitle={(suggestedTitle) => setForm((f) => ({ ...f, title: f.title || suggestedTitle }))}
               onChange={(bodyTemplate) => setForm((f) => ({ ...f, bodyTemplate }))}
             />
           </label>
@@ -207,6 +211,10 @@ export default function DrhpPanel({
               <DisclosureBodyEditor
                 value={editForm.bodyTemplate}
                 facts={facts}
+                transactionId={transactionId}
+                sectionCode={editForm.sectionCode}
+                title={editForm.title}
+                onSuggestedTitle={(suggestedTitle) => setEditForm((f) => ({ ...f, title: f.title || suggestedTitle }))}
                 onChange={(bodyTemplate) => setEditForm((f) => ({ ...f, bodyTemplate }))}
               />
             </label>

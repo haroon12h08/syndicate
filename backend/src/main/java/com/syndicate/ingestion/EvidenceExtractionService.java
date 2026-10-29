@@ -174,6 +174,9 @@ public class EvidenceExtractionService {
             });
         }
 
+        String fullExtractedText = tokens.stream().map(DocumentToken::text).collect(java.util.stream.Collectors.joining(" "));
+        evidence.setExtractedText(fullExtractedText);
+
         int totalCandidates = 0;
 
         // 1. Deterministic Pass

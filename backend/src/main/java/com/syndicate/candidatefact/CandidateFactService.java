@@ -58,6 +58,10 @@ public class CandidateFactService {
         return candidateFactRepository.findByWorkstreamId(workstreamId);
     }
 
+    public List<CandidateFact> findByTransactionIdAndStatus(UUID transactionId, CandidateFactStatus status) {
+        return candidateFactRepository.findByWorkstreamTransactionIdAndStatus(transactionId, status);
+    }
+
     public CandidateFactDto get(UUID id, UUID callerId) {
         CandidateFact candidate = findCandidate(id);
         workstreamService.requireAccess(candidate.getWorkstream().getId(), callerId);

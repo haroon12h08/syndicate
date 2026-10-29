@@ -60,6 +60,9 @@ public class Evidence extends BaseEntity {
     @Column(name = "processing_error", columnDefinition = "TEXT")
     private String processingError;
 
+    @Column(name = "extracted_text", columnDefinition = "TEXT")
+    private String extractedText;
+
     @Column(name = "suggested_document_type", length = 64)
     private String suggestedDocumentType;
 
@@ -268,6 +271,14 @@ public class Evidence extends BaseEntity {
 
     public void setProcessingError(String processingError) {
         this.processingError = processingError;
+    }
+
+    public String getExtractedText() {
+        return extractedText;
+    }
+
+    public void setExtractedText(String extractedText) {
+        this.extractedText = extractedText;
     }
 
     public String getSuggestedDocumentType() {

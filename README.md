@@ -196,17 +196,17 @@ Every extracted candidate fact and verified fact retains a spatial bounding-box 
 
 ### 3.5 AI artifacts and the Zero AI Authority boundary
 
-Machine learning models (Anthropic Claude 3.5 Sonnet / Haiku or local deterministic fallbacks) operate strictly outside the authoritative boundary. All AI operations — document classification suggestions and candidate fact extraction from financial statements or board resolutions — record immutable provenance records in the `ai_artifacts` table:
+Machine learning models (Anthropic Claude 3.5 Sonnet / Haiku or local deterministic fallbacks) operate strictly outside the authoritative boundary. All AI operations — document classification suggestions, candidate fact extraction, statutory health suggestions (pre-conflicts, missing evidence, diligence gaps), and drafting assist for DRHP disclosures and regulatory observations — record immutable provenance records in the `ai_artifacts` table:
 - **Model identity**: e.g., `claude-3-5-sonnet-20241022` or `mock-deterministic-v1`.
 - **Prompt reproducibility**: SHA-256 hash of the versioned prompt template.
 - **Economic accounting**: Prompt tokens, completion tokens, total tokens, and USD cost.
-- **Input lineage**: SHA-256 hashes and UUIDs of the source evidence documents.
+- **Input lineage**: SHA-256 hashes and UUIDs of the source evidence documents or target entities.
 - **Confidence & payload**: Model confidence rating (0.00–1.00) and raw JSON response.
 
 Crucially, **Zero AI Authority** is enforced at multiple architectural layers:
-1. *Database constraints*: Foreign keys and table schemas restrict AI services to writing only to `ai_artifacts`, `extraction_runs`, and `candidate_facts`.
-2. *Service barriers*: Verified facts, audit logs, reviews, and filing approvals have no write APIs exposed to AI workers.
-3. *ArchUnit tests*: An automated architecture test (`AiArchitectureTest`) verifies that no class in `com.syndicate.ai` depends upon or calls mutation methods on authoritative fact or approval repositories.
+1. *Database constraints*: Foreign keys and table schemas restrict AI services to writing only to `ai_artifacts`, `ai_suggestions`, `extraction_runs`, and `candidate_facts`.
+2. *Service barriers*: Verified facts, audit logs, reviews, and filing approvals have no write APIs exposed to AI workers. AI drafting proposals land strictly as editable drafts awaiting human review and explicit submission.
+3. *ArchUnit tests*: An automated architecture test (`AiArchitectureTest`) verifies that no class in `com.syndicate.ai` depends upon or calls mutation methods on authoritative fact, approval, review, conflict, or audit repositories.
 
 ---
 
@@ -221,9 +221,9 @@ cannot be stored and then silently never processed.
 
 | Layer | Technology | Notes |
 |-------|-----------|-------|
-| API, domain, workers | Java 17, Spring Boot 3.3 | Single process; 39 modules under `com.syndicate` |
-| Persistence | PostgreSQL 16, Flyway | 27 migrations, `V1`–`V27`; `ddl-auto=validate` |
-| Extraction & AI | Apache PDFBox, Tesseract OCR, Claude 3.5 | Text layer first, OCR fallback, AI extraction bounded by Zero AI Authority |
+| API, domain, workers | Java 17, Spring Boot 3.3 | Single process; 41 modules under `com.syndicate` |
+| Persistence | PostgreSQL 16, Flyway | 28 migrations, `V1`–`V28`; GIN full-text search indexing; `ddl-auto=validate` |
+| Extraction & AI | Apache PDFBox, Tesseract OCR, Claude 3.5 | Text layer first, OCR fallback, AI extraction, suggestions & drafting bounded by Zero AI Authority |
 | Document Rendering | OpenPDF, Apache POI | SEBI-compliant PDF and DOCX export with cryptographic provenance stamps |
 | Front end | React 19, Vite 8, PDF.js | High-DPI canvas PDF viewer with SVG bounding-box highlights; compiled into API |
 | Packaging | Docker, Compose | Two containers: the product and its database |
@@ -233,22 +233,22 @@ cannot be stored and then silently never processed.
 | Area | Modules |
 |------|---------|
 | Evidence and ingestion | `evidence`, `ingestion`, `candidatefact`, `jobs` |
-| AI and Intelligence | `ai.artifact`, `ai.llm`, `ai.classification`, `ai.extraction`, `ai.runs` |
+| AI and Intelligence | `ai.artifact`, `ai.llm`, `ai.classification`, `ai.extraction`, `ai.runs`, `ai.suggestion`, `ai.drafting` |
 | Transaction truth | `fact`, `conflict`, `review`, `graph` |
 | Diligence and control | `diligence`, `workbench`, `regulatory`, `issue`, `task` |
 | Output and Exports | `drhp` (incl. `render`), `provenance`, `filing` (incl. `resubmission`), `observation`, `lifecycle` |
 | Identity and access | `auth`, `user`, `organization`, `transaction`, `permission`, `invitation` |
-| Cross-cutting | `audit`, `notification`, `registry`, `common`, `stream`, `onboarding` |
+| Cross-cutting | `search`, `audit`, `notification`, `registry`, `common`, `stream`, `onboarding` |
 
 ### 4.3 Numbers
 
 | Measure | Value |
 |---------|-------|
-| Backend source files | 323 |
-| HTTP endpoints | 131 |
-| Database migrations | 27 |
-| Front-end source files | 72 |
-| Automated tests | 152 (37 unit, 115 integration) |
+| Backend source files | 346 |
+| HTTP endpoints | 138 |
+| Database migrations | 28 |
+| Front-end source files | 73 |
+| Automated tests | 163 (37 unit, 126 integration) |
 
 ---
 
@@ -378,7 +378,36 @@ Compiled offer documents export directly to production-grade PDF and DOCX format
 
 In response to regulatory observations (SEBI/BSE), filing packages can be versioned and resubmitted (Spec §24, Ticket F4). The system computes an automated semantic diff between filing package versions, identifying added, removed, and modified disclosures and fact values, and generates an auditable Statement of Changes required for formal resubmissions.
 
-### 5.14 Demonstration
+### 5.14 Unified transaction search across entities
+
+Diligence and disclosure tracking requires looking across disparate records without losing transaction context (Spec §28, Ticket G3). The unified transaction search modal (`⌘K` / `Ctrl+K`) runs multi-entity full-text queries across 7 asset types: Facts, Candidate Facts, Evidence (indexing extracted OCR text and metadata), Disclosures, Diligence Questions, Conflicts, and Audit Events. Results feature entity-specific status badges (`VERIFIED`, `PENDING`, `BLOCKING`), category counts, provenance metadata, deep links, and keyboard navigation.
+
+<p align="center"><img src="docs/assets/figures/fig14-transaction-search.png" alt="Unified transaction search modal" width="860"></p>
+<p align="center"><em><strong>Figure 14.</strong> Unified search modal (`⌘K`) querying across Facts, Evidence, Candidates, Disclosures, Diligence, Conflicts, and Audit Events with category badges and deep links.</em></p>
+
+### 5.15 Proactive intelligence suggestions engine
+
+The AI suggestions engine continuously audits transaction health against statutory Indian SME IPO requirements (Spec §26, §70, Ticket G4). Operating under Zero AI Authority, suggestions record immutable `ai_artifacts` provenance and propose actionable interventions awaiting human review:
+- **Pre-conflict detection**: Identifies pending candidate facts that contradict existing verified or draft facts, preventing silent data discrepancies prior to human review.
+- **Missing mandatory evidence alerts**: Cross-checks uploaded documents against BSE SME guidance (Audited Financials, Board Resolutions, Auditor Peer Review Certificates, Title/Lease Deeds, Material Contracts).
+- **Diligence gap detection**: Surfaces unresolved blocking or high-severity diligence questions requiring primary documentary evidence.
+
+<p align="center"><img src="docs/assets/figures/fig15-ai-suggestions-panel.png" alt="AI suggestions engine panel" width="860"></p>
+<p align="center"><em><strong>Figure 15.</strong> AI suggestions panel displaying pre-conflict warnings, missing statutory evidence alerts, and diligence gaps with Accept/Dismiss actions and AI provenance traceability.</em></p>
+
+### 5.16 AI drafting assist with verified fact citation and observation responses
+
+Drafting offer documents and responding to regulatory queries is accelerated while maintaining strict factual grounding (Spec §15, §18, §26, §68, Ticket G5):
+- **DRHP disclosure drafting**: Given drafting instructions, the LLM synthesizes formal prospectus prose citing verified facts exclusively through valid `{{fact:<key>@<period>}}` placeholders. Values are bound deterministically at compile time, guaranteeing zero hallucinated figures in the compiled filing copy.
+- **Regulatory observation responses**: When exchanges or SEBI issue queries, the response assistant generates formal replies grounded directly in verified transaction facts and primary evidence documents, auto-selecting supporting fact and evidence references.
+
+<p align="center"><img src="docs/assets/figures/fig16-ai-disclosure-draft-assist.png" alt="AI disclosure drafting assist" width="860"></p>
+<p align="center"><em><strong>Figure 16.</strong> DRHP disclosure drafting assist generating prospectus prose with verified fact placeholders and cited fact key tags.</em></p>
+
+<p align="center"><img src="docs/assets/figures/fig17-ai-observation-response-assist.png" alt="AI regulatory observation response assist" width="860"></p>
+<p align="center"><em><strong>Figure 17.</strong> AI regulatory observation response assistant generating formal replies grounded in verified transaction facts and primary evidence documents.</em></p>
+
+### 5.17 Demonstration
 
 A walkthrough of the above, recorded against the running system, is produced by
 [`demo/record-demo.mjs`](demo/record-demo.mjs); the narration is in
@@ -397,10 +426,10 @@ and transaction boundaries as a user.
 | Layer | Count | What it covers |
 |-------|-------|----------------|
 | Unit | 37 | Value normalisation, PDF geometry, OCR parsing, readiness derivation, checksums, document rendering, AI architecture |
-| Integration | 115 | Every workflow through the API, against real Postgres |
+| Integration | 126 | Every workflow through the API, against real Postgres |
 | — of which security | 12 | Cross-organisation isolation, role matrix (12 roles), sessions, upload safety |
 | — of which end-to-end | 3 | Golden path, filing package, lifecycle |
-| — of which AI & invariants | 14 | Zero AI Authority, AI artifact provenance, candidate boundaries, spatial grounding, resubmissions |
+| — of which AI & invariants | 25 | Zero AI Authority, AI artifact provenance, suggestions pre-conflicts & gap audits, candidate boundaries, spatial grounding, AI drafting |
 
 ```bash
 cd backend && mvn verify        # unit + integration (requires Docker)
@@ -412,7 +441,7 @@ cd frontend && npm run lint && npm run build
 | Principle | Test |
 |-----------|------|
 | P1 Preserve the source | `EvidenceCustodyIT` — versioning, archival refusal while referenced, integrity re-hash |
-| P2 Observation ≠ truth (Zero AI Authority) | `CandidateBoundaryIT` — acceptance yields a draft fact, never a verified one; `AiArchitectureTest` — ArchUnit enforces zero AI write paths to verified state; `AiArtifactProvenanceIT` — immutable prompt SHA-256 and token economics |
+| P2 Observation ≠ truth (Zero AI Authority) | `CandidateBoundaryIT` — acceptance yields a draft fact, never a verified one; `AiArchitectureTest` — ArchUnit enforces zero AI write paths to verified state; `AiArtifactProvenanceIT` — immutable prompt SHA-256 and token economics; `AiIntelligenceLayerIT` — candidate fact extraction, pre-conflicts, drafting bounds |
 | P3 Second pair of eyes | `CandidateBoundaryIT` — service refusal *and* a `CHECK` constraint |
 | P4 No silent resolution | `OwnershipConflictIT` — the full §65 scenario, including reopening |
 | P5 Versioning | `FactSemanticKeyIT`, `ConcurrentCorrectionIT` — lineage kept; racing corrections cannot both win |
@@ -420,6 +449,8 @@ cd frontend && npm run lint && npm run build
 | P8 Fail-closed compilation & Export | `GoldenPathIT`, `FilingPackageIT`, `DrhpExportIT`, `DocumentRenderTest` — export with cryptographic provenance stamps |
 | P9 Explainability | `WorkbenchIT`, `DerivedReadinessTest` |
 | Spatial grounding | `SpatialGroundingIT`, `PdfCoordinateConverterTest`, `PdfLayoutParserTest` — 1000×1000 coordinate normalization, multi-page bounding boxes |
+| AI suggestions & Pre-conflicts | `AiIntelligenceLayerIT`, `AiArchitectureTest` — candidate divergence detection prior to acceptance, statutory missing evidence and diligence gap detection |
+| AI drafting & Citation bounding | `AiIntelligenceLayerIT` — verified fact placeholder syntax enforcement, observation response fact/evidence grounding |
 | Resubmission diffing | `ResubmissionIT` — filing package version diffing, statement of changes generation |
 | Audit integrity | `AuditIntegrityIT` — trigger refusal, chain verification, tamper detection |
 | Access control | `TenantIsolationIT`, `RolePermissionIT`, `SessionIT`, `PublicSurfaceIT` |

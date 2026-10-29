@@ -29,12 +29,15 @@ import ObservationsPanel from '../components/ObservationsPanel';
 import StageHeader from '../components/StageHeader';
 import AuditTimeline from '../components/AuditTimeline';
 import ProvenanceDrawer from '../components/ProvenanceDrawer';
+import AiSuggestionsPanel from '../components/AiSuggestionsPanel';
+import TransactionSearchModal from '../components/TransactionSearchModal';
 import { TRANSACTION_ROLES, WORKSTREAM_TYPES, humanize } from '../constants';
 
 const SIGNER_ROLES = ['ISSUER_ADMIN', 'LEAD_BANKER'];
 
 const TABS = [
   { key: 'overview', label: 'Overview' },
+  { key: 'suggestions', label: 'AI Suggestions' },
   { key: 'documents', label: 'Documents' },
   { key: 'diligence', label: 'Diligence' },
   { key: 'conflicts', label: 'Conflicts' },
@@ -82,6 +85,18 @@ export default function TransactionDetailPage() {
   const [stage, setStage] = useState(null);
   const [provenance, setProvenance] = useState(null);
   const [error, setError] = useState(null);
+  const [searchOpen, setSearchOpen] = useState(false);
+
+  useEffect(() => {
+    function handleKeyDown(e) {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setSearchOpen((prev) => !prev);
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   const [inviteMode, setInviteMode] = useState('individual');
   const [inviteForm, setInviteForm] = useState({ targetOrganizationId: '', targetEmail: '', role: TRANSACTION_ROLES[0], workstreamId: '' });
@@ -412,6 +427,7 @@ export default function TransactionDetailPage() {
       <div className="page-header">
         <h1>{transaction.name}</h1>
         <div className="inline-form">
+          <button className="secondary" onClick={() => setSearchOpen(true)}>🔍 Search (⌘K)</button>
           <button className="secondary" onClick={handleLeave}>Leave transaction</button>
           {myMembership?.role === 'ISSUER_ADMIN' && (
             <button className="danger" onClick={handleDeleteTransaction}>Delete transaction</button>
@@ -517,6 +533,10 @@ export default function TransactionDetailPage() {
         />
       )}
 
+      {tab === 'suggestions' && (
+        <AiSuggestionsPanel transactionId={id} canEdit={!!myMembership} />
+      )}
+
       {tab === 'documents' && (
         <DocumentsPanel
           evidence={evidence}
@@ -545,6 +565,7 @@ export default function TransactionDetailPage() {
 
       {tab === 'drhp' && (
       <DrhpPanel
+        transactionId={id}
         facts={facts}
         disclosures={disclosures}
         document={drhpDocument}
@@ -776,6 +797,12 @@ export default function TransactionDetailPage() {
       </ul>
       </>
       )}
+      <TransactionSearchModal
+        transactionId={id}
+        transactionName={transaction?.name}
+        isOpen={searchOpen}
+        onClose={() => setSearchOpen(false)}
+      />
     </div>
   );
 }

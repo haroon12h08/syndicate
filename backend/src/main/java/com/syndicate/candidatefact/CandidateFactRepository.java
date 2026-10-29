@@ -9,6 +9,8 @@ import java.util.UUID;
 public interface CandidateFactRepository extends JpaRepository<CandidateFact, UUID> {
     List<CandidateFact> findByWorkstreamId(UUID workstreamId);
 
+    List<CandidateFact> findByWorkstreamTransactionIdAndStatus(UUID transactionId, CandidateFactStatus status);
+
     List<CandidateFact> findByWorkstreamIdAndStatus(UUID workstreamId, CandidateFactStatus status);
 
     void deleteByEvidenceIdAndStatus(UUID evidenceId, CandidateFactStatus status);

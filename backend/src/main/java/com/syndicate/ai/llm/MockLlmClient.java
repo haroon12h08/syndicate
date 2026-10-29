@@ -95,6 +95,45 @@ public class MockLlmClient implements LlmClient {
                       ]
                     }
                     """;
+        } else if ("suggestion-generation".equals(prompt.templateName())) {
+            rawOutput = """
+                    {
+                      "summary": "Completed diligence cross-checks across candidates, evidence inventory, and checklist requirements.",
+                      "riskLevel": "MEDIUM",
+                      "recommendations": [
+                        "Review detected pre-conflicts before candidate acceptance.",
+                        "Upload mandatory BSE SME audited financial statements and board resolutions."
+                      ]
+                    }
+                    """;
+        } else if ("disclosure-drafting".equals(prompt.templateName())) {
+            String title = "Capital Structure and Financial Summary";
+            if (prompt.userPrompt() != null && prompt.userPrompt().contains("FINANCIAL_INFORMATION")) {
+                title = "Summary of Financial Information";
+            }
+            rawOutput = """
+                    {
+                      "suggestedTitle": "%s",
+                      "bodyTemplate": "For the financial year ended March 31, 2026, the Issuer achieved total revenue of {{fact:issuer.revenue@FY2026}} with an EBITDA of {{fact:issuer.ebitda@FY2026}} and a net profit of {{fact:issuer.pat@FY2026}}. As of the date of this Draft Red Herring Prospectus, the authorized share capital of our Company is {{fact:issuer.authorized_capital@FY2026}} and the paid-up equity share capital is {{fact:issuer.paid_up_capital@FY2026}}.",
+                      "citedFactKeys": [
+                        "issuer.revenue",
+                        "issuer.ebitda",
+                        "issuer.pat",
+                        "issuer.authorized_capital",
+                        "issuer.paid_up_capital"
+                      ]
+                    }
+                    """.formatted(title);
+        } else if ("observation-response".equals(prompt.templateName())) {
+            rawOutput = """
+                    {
+                      "suggestedResponse": "With reference to the observation raised by the regulator regarding operational results and inventory movements, the Issuer respectfully submits that inventory levels expanded to support scheduled deliveries under executed commercial agreements. As substantiated by the Audited Financial Statements, total revenue reached {{fact:issuer.revenue@FY2026}} reflecting genuine trading expansion. All physical inventory has been reconciled with statutory stock registries.",
+                      "suggestedFactIds": [],
+                      "suggestedEvidenceIds": [],
+                      "suggestedDisclosureIds": [],
+                      "reasoning": "Directly grounds the management explanation on audited financial statements and commercial contract delivery schedules."
+                    }
+                    """;
         } else {
             rawOutput = "{}";
         }

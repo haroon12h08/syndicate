@@ -128,6 +128,14 @@ public class AiArtifact extends BaseEntity {
         this.reviewedAt = Instant.now();
     }
 
+    public void setResultingEntityType(String resultingEntityType) {
+        this.resultingEntityType = resultingEntityType;
+    }
+
+    public void setResultingEntityId(UUID resultingEntityId) {
+        this.resultingEntityId = resultingEntityId;
+    }
+
     public String getProvider() {
         return provider;
     }
