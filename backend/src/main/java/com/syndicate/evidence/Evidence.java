@@ -33,6 +33,9 @@ public class Evidence extends BaseEntity {
     @Column(name = "storage_path", nullable = false)
     private String storagePath;
 
+    @Column(name = "storage_backend", nullable = false)
+    private String storageBackend = "FILESYSTEM";
+
     @Column(name = "content_type", nullable = false)
     private String contentType;
 
@@ -231,6 +234,14 @@ public class Evidence extends BaseEntity {
 
     public String getStoragePath() {
         return storagePath;
+    }
+
+    public String getStorageBackend() {
+        return storageBackend;
+    }
+
+    public void setStorageBackend(String storageBackend) {
+        this.storageBackend = storageBackend;
     }
 
     public String getContentType() {

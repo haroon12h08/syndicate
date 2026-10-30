@@ -1,6 +1,8 @@
+import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useBreadcrumbs } from '../context/BreadcrumbContext';
 import { useAuth } from '../context/AuthContext';
+import UserSettingsModal from './UserSettingsModal';
 
 const NAV_ITEMS = [
   { to: '/home', label: 'Home' },
@@ -13,6 +15,7 @@ export default function AppShell({ children }) {
   const { user, logout } = useAuth();
   const location = useLocation();
   const { trail } = useBreadcrumbs();
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   return (
     <div className="app-shell">
@@ -33,11 +36,15 @@ export default function AppShell({ children }) {
           ))}
         </nav>
         <div className="app-sidebar-footer">
-          <div className="app-sidebar-user">
+          <div className="app-sidebar-user" style={{ cursor: 'pointer' }} onClick={() => setSettingsOpen(true)} title="Security & MFA settings">
             <strong>{user?.fullName}</strong>
+            <span style={{ fontSize: '0.75rem', color: '#64748b', display: 'block' }}>
+              {user?.mfaEnabled ? '🔒 2FA Active' : '⚙️ Security / MFA'}
+            </span>
           </div>
           <button className="secondary" onClick={logout}>Log out</button>
         </div>
+        <UserSettingsModal isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} />
       </aside>
       <div className="app-main">
         <header className="app-topbar">

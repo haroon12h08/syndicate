@@ -24,6 +24,21 @@ spring:
       max-file-size: 25MB
       max-request-size: 25MB
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*"
+  endpoint:
+    health:
+      show-details: always
+    prometheus:
+      enabled: true
+  prometheus:
+    metrics:
+      export:
+        enabled: true
+
 syndicate:
   jwt:
     secret: ${SYNDICATE_JWT_SECRET:dev-only-secret-change-me-please-this-must-be-at-least-32-bytes-long}
@@ -44,7 +59,21 @@ syndicate:
     enabled: ${SYNDICATE_JOBS_ENABLED:true}
     poll-ms: ${SYNDICATE_JOBS_POLL_MS:1000}
   storage:
+    type: ${SYNDICATE_STORAGE_TYPE:filesystem}
     upload-dir: ${SYNDICATE_UPLOAD_DIR:./uploads}
+    s3:
+      bucket: ${SYNDICATE_S3_BUCKET:syndicate-evidence}
+      region: ${SYNDICATE_S3_REGION:us-east-1}
+      endpoint: ${SYNDICATE_S3_ENDPOINT:}
+      access-key: ${SYNDICATE_S3_ACCESS_KEY:minioadmin}
+      secret-key: ${SYNDICATE_S3_SECRET_KEY:minioadmin}
+      path-style-access: ${SYNDICATE_S3_PATH_STYLE:true}
+  malware:
+    scanner: ${SYNDICATE_MALWARE_SCANNER:passthrough}
+    clamav:
+      host: ${SYNDICATE_CLAMAV_HOST:localhost}
+      port: ${SYNDICATE_CLAMAV_PORT:3310}
+      timeout-ms: ${SYNDICATE_CLAMAV_TIMEOUT_MS:5000}
   cors:
     # Empty by default: the app and API share an origin. Set only for a separately hosted front end.
     allowed-origins: ${SYNDICATE_CORS_ORIGINS:}

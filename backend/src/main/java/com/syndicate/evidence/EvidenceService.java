@@ -55,13 +55,15 @@ public class EvidenceService {
     private final com.syndicate.transaction.TransactionService transactionService;
     private final AuditService auditService;
     private final UploadValidator uploadValidator;
+    private final com.syndicate.metrics.SyndicateMetrics syndicateMetrics;
 
     public EvidenceService(EvidenceRepository evidenceRepository, WorkstreamService workstreamService,
                             FileStorageService fileStorageService, JobQueue jobQueue,
                             PageImageCache pageImageCache, CandidateFactRepository candidateFactRepository,
                             FactRepository factRepository,
                             com.syndicate.transaction.TransactionService transactionService,
-                            AuditService auditService, UploadValidator uploadValidator) {
+                            AuditService auditService, UploadValidator uploadValidator,
+                            com.syndicate.metrics.SyndicateMetrics syndicateMetrics) {
         this.evidenceRepository = evidenceRepository;
         this.workstreamService = workstreamService;
         this.fileStorageService = fileStorageService;
@@ -72,6 +74,7 @@ public class EvidenceService {
         this.transactionService = transactionService;
         this.auditService = auditService;
         this.uploadValidator = uploadValidator;
+        this.syndicateMetrics = syndicateMetrics;
     }
 
     @Transactional
@@ -87,12 +90,15 @@ public class EvidenceService {
             throw new ConflictException("DUPLICATE_EVIDENCE", "This exact file is already on the transaction as \""
                     + existing.getFileName() + "\" (" + existing.getId() + ")");
         });
-        Evidence saved = evidenceRepository.save(new Evidence(workstream, originalName(file),
+        Evidence evidence = new Evidence(workstream, originalName(file),
                 fileStorageService.store(content, sha256), contentType(file), content.length, documentType,
-                caller, sha256));
+                caller, sha256);
+        evidence.setStorageBackend(fileStorageService.getBackendType());
+        Evidence saved = evidenceRepository.save(evidence);
         auditService.record(transactionId, caller, AuditAction.EVIDENCE_UPLOADED, "Evidence", saved.getId(),
                 "Uploaded " + saved.getFileName(), null, sha256, null);
         queueExtraction(saved.getId());
+        syndicateMetrics.incrementEvidenceUploads();
         return EvidenceDto.from(saved);
     }
 
@@ -116,8 +122,10 @@ public class EvidenceService {
         if (sha256.equals(parent.getFileSha256())) {
             throw new ConflictException("DUPLICATE_EVIDENCE", "The new version is byte-identical to the current one");
         }
-        Evidence saved = evidenceRepository.save(Evidence.newVersionOf(parent, originalName(file),
-                fileStorageService.store(content, sha256), contentType(file), content.length, caller, sha256));
+        Evidence newVersion = Evidence.newVersionOf(parent, originalName(file),
+                fileStorageService.store(content, sha256), contentType(file), content.length, caller, sha256);
+        newVersion.setStorageBackend(fileStorageService.getBackendType());
+        Evidence saved = evidenceRepository.save(newVersion);
         parent.markSuperseded(Instant.now());
         candidateFactRepository.findByEvidenceIdAndStatus(parent.getId(), CandidateFactStatus.PENDING)
                 .forEach(CandidateFact::supersede);
@@ -125,6 +133,7 @@ public class EvidenceService {
                 "Evidence", saved.getId(), "New version v" + saved.getVersion() + " of " + parent.getFileName(),
                 parent.getFileSha256(), sha256, reason);
         queueExtraction(saved.getId());
+        syndicateMetrics.incrementEvidenceUploads();
         return EvidenceDto.from(saved);
     }
 

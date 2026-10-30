@@ -221,34 +221,36 @@ cannot be stored and then silently never processed.
 
 | Layer | Technology | Notes |
 |-------|-----------|-------|
-| API, domain, workers | Java 17, Spring Boot 3.3 | Single process; 41 modules under `com.syndicate` |
-| Persistence | PostgreSQL 16, Flyway | 28 migrations, `V1`–`V28`; GIN full-text search indexing; `ddl-auto=validate` |
+| API, domain, workers | Java 17, Spring Boot 3.3 | Single process; 43 modules under `com.syndicate` |
+| Persistence | PostgreSQL 16, Flyway | 29 migrations, `V1`–`V29`; GIN full-text search indexing; `ddl-auto=validate` |
 | Extraction & AI | Apache PDFBox, Tesseract OCR, Claude 3.5 | Text layer first, OCR fallback, AI extraction, suggestions & drafting bounded by Zero AI Authority |
+| Storage & Security | Filesystem, AWS S3/MinIO, TOTP, ClamAV | Plug-and-play S3 object storage; TOTP MFA (RFC 6238); Brute-force lockout; Malware scanning |
+| Observability | Micrometer, Prometheus, Actuator | Production Prometheus metrics export (`/actuator/prometheus`) tracking auth, compilation & audit health |
 | Document Rendering | OpenPDF, Apache POI | SEBI-compliant PDF and DOCX export with cryptographic provenance stamps |
-| Front end | React 19, Vite 8, PDF.js | High-DPI canvas PDF viewer with SVG bounding-box highlights; compiled into API |
+| Front end | React 19, Vite 8, PDF.js | High-DPI canvas PDF viewer with SVG bounding-box highlights, MFA settings & TOTP login; compiled into API |
 | Packaging | Docker, Compose | Two containers: the product and its database |
 
 ### 4.2 Module map
 
 | Area | Modules |
 |------|---------|
-| Evidence and ingestion | `evidence`, `ingestion`, `candidatefact`, `jobs` |
+| Evidence and ingestion | `evidence` (incl. `scanner`, `storage`), `ingestion`, `candidatefact`, `jobs` |
 | AI and Intelligence | `ai.artifact`, `ai.llm`, `ai.classification`, `ai.extraction`, `ai.runs`, `ai.suggestion`, `ai.drafting` |
 | Transaction truth | `fact`, `conflict`, `review`, `graph` |
 | Diligence and control | `diligence`, `workbench`, `regulatory`, `issue`, `task` |
 | Output and Exports | `drhp` (incl. `render`), `provenance`, `filing` (incl. `resubmission`), `observation`, `lifecycle` |
-| Identity and access | `auth`, `user`, `organization`, `transaction`, `permission`, `invitation` |
-| Cross-cutting | `search`, `audit`, `notification`, `registry`, `common`, `stream`, `onboarding` |
+| Identity and access | `auth` (incl. `totp`), `user`, `organization`, `transaction`, `permission`, `invitation` |
+| Cross-cutting | `search`, `metrics`, `audit`, `notification`, `registry`, `common`, `stream`, `onboarding` |
 
 ### 4.3 Numbers
 
 | Measure | Value |
 |---------|-------|
-| Backend source files | 346 |
-| HTTP endpoints | 138 |
-| Database migrations | 28 |
-| Front-end source files | 73 |
-| Automated tests | 163 (37 unit, 126 integration) |
+| Backend source files | 357 |
+| HTTP endpoints | 142 |
+| Database migrations | 29 |
+| Front-end source files | 74 |
+| Automated tests | 171 (37 unit, 134 integration) |
 
 ---
 
@@ -407,7 +409,17 @@ Drafting offer documents and responding to regulatory queries is accelerated whi
 <p align="center"><img src="docs/assets/figures/fig17-ai-observation-response-assist.png" alt="AI regulatory observation response assist" width="860"></p>
 <p align="center"><em><strong>Figure 17.</strong> AI regulatory observation response assistant generating formal replies grounded in verified transaction facts and primary evidence documents.</em></p>
 
-### 5.17 Demonstration
+### 5.17 Production hardening, MFA & enterprise deal advisory execution
+
+Operating in institutional investment banking and transaction advisory demands enterprise-grade operational resilience and defense-in-depth:
+- **Two-Factor Authentication (TOTP)**: Spec §50, Ticket H1. Implements standard RFC 6238 time-based one-time passwords compatible with Google Authenticator, 1Password, and Authy. Users register their authenticator app using base32 keys and `otpauth://` QR codes; challenge tokens enforce strict separation between preliminary credentials and full API access.
+- **Brute-Force Account Lockout**: Spec §50, Ticket H1. Five consecutive failed authentication attempts automatically lock the user account for 15 minutes, emitting real-time security alerts to Prometheus metrics.
+- **Antivirus & Malware Scanning**: Spec §51, Ticket H2. Incoming evidence uploads pass through a streaming antivirus scanner (supporting ClamAV daemon and EICAR signature recognition) before persisting to disk or cloud storage.
+- **Pluggable Object Storage**: Spec §51, Ticket H2. Seamlessly switches between local filesystem custody and AWS S3 / MinIO object storage (`SYNDICATE_STORAGE_TYPE=s3`).
+- **Observability & Prometheus Metrics**: Spec §52, Ticket H3. Real-time telemetry via Spring Boot Actuator (`/actuator/prometheus`), tracking authentication attempts, lockouts, evidence processing latency, compile durations, and audit write integrity.
+- **20-Person Core Advisory Workflow**: Full operational hierarchy and execution manual for multidisciplinary capital markets teams (Financial Diligence, Corporate Law, Litigation, Cap Table, Drafting) is documented in [`docs/KPMG_20_PERSON_IPO_WORKFLOW.md`](docs/KPMG_20_PERSON_IPO_WORKFLOW.md).
+
+### 5.18 Demonstration
 
 A walkthrough of the above, recorded against the running system, is produced by
 [`demo/record-demo.mjs`](demo/record-demo.mjs); the narration is in
@@ -426,8 +438,8 @@ and transaction boundaries as a user.
 | Layer | Count | What it covers |
 |-------|-------|----------------|
 | Unit | 37 | Value normalisation, PDF geometry, OCR parsing, readiness derivation, checksums, document rendering, AI architecture |
-| Integration | 126 | Every workflow through the API, against real Postgres |
-| — of which security | 12 | Cross-organisation isolation, role matrix (12 roles), sessions, upload safety |
+| Integration | 134 | Every workflow through the API, against real Postgres |
+| — of which security | 20 | Cross-organisation isolation, role matrix (12 roles), sessions, TOTP MFA, account lockout, upload malware safety |
 | — of which end-to-end | 3 | Golden path, filing package, lifecycle |
 | — of which AI & invariants | 25 | Zero AI Authority, AI artifact provenance, suggestions pre-conflicts & gap audits, candidate boundaries, spatial grounding, AI drafting |
 
@@ -451,6 +463,7 @@ cd frontend && npm run lint && npm run build
 | Spatial grounding | `SpatialGroundingIT`, `PdfCoordinateConverterTest`, `PdfLayoutParserTest` — 1000×1000 coordinate normalization, multi-page bounding boxes |
 | AI suggestions & Pre-conflicts | `AiIntelligenceLayerIT`, `AiArchitectureTest` — candidate divergence detection prior to acceptance, statutory missing evidence and diligence gap detection |
 | AI drafting & Citation bounding | `AiIntelligenceLayerIT` — verified fact placeholder syntax enforcement, observation response fact/evidence grounding |
+| Production hardening & MFA | `ProductionHardeningIT` — TOTP MFA challenge flow, account brute-force lockout, ClamAV/EICAR malware upload safety, storage backend abstraction, Actuator Prometheus metrics |
 | Resubmission diffing | `ResubmissionIT` — filing package version diffing, statement of changes generation |
 | Audit integrity | `AuditIntegrityIT` — trigger refusal, chain verification, tamper detection |
 | Access control | `TenantIsolationIT`, `RolePermissionIT`, `SessionIT`, `PublicSurfaceIT` |

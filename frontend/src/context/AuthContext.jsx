@@ -19,6 +19,16 @@ export function AuthProvider({ children }) {
 
   async function login(email, password) {
     const response = await authApi.login({ email, password });
+    if (response.mfaRequired) {
+      return response;
+    }
+    setToken(response.token);
+    setUser(response.user);
+    return response;
+  }
+
+  async function completeMfaLogin(mfaToken, code) {
+    const response = await authApi.verifyMfaLogin(mfaToken, parseInt(code, 10));
     setToken(response.token);
     setUser(response.user);
     return response;
@@ -41,7 +51,7 @@ export function AuthProvider({ children }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, setUser, loading, login, completeMfaLogin, register, logout }}>
       {children}
     </AuthContext.Provider>
   );

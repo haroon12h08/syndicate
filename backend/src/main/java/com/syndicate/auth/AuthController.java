@@ -5,6 +5,9 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import com.syndicate.auth.dto.AuthResponse;
 import com.syndicate.auth.dto.LoginRequest;
+import com.syndicate.auth.dto.MfaLoginRequest;
+import com.syndicate.auth.dto.MfaSetupResponse;
+import com.syndicate.auth.dto.MfaVerifyRequest;
 import com.syndicate.auth.dto.RegisterRequest;
 import com.syndicate.user.User;
 import com.syndicate.user.UserDto;
@@ -56,5 +59,28 @@ public class AuthController {
     @GetMapping("/me")
     public UserDto me(@AuthenticationPrincipal User currentUser) {
         return UserDto.from(currentUser);
+    }
+
+    @PostMapping("/mfa/setup")
+    public MfaSetupResponse setupMfa(@AuthenticationPrincipal User currentUser) {
+        return authService.setupMfa(currentUser);
+    }
+
+    @PostMapping("/mfa/enable")
+    public UserDto enableMfa(@Valid @RequestBody MfaVerifyRequest request,
+                             @AuthenticationPrincipal User currentUser) {
+        return authService.enableMfa(currentUser, request.code());
+    }
+
+    @PostMapping("/mfa/disable")
+    public UserDto disableMfa(@Valid @RequestBody MfaVerifyRequest request,
+                              @AuthenticationPrincipal User currentUser) {
+        return authService.disableMfa(currentUser, request.code());
+    }
+
+    @PostMapping("/mfa/verify-login")
+    public AuthResponse verifyMfaLogin(@Valid @RequestBody MfaLoginRequest request,
+                                       HttpServletRequest httpRequest, HttpServletResponse httpResponse) {
+        return authService.verifyMfaLogin(request, httpRequest, httpResponse);
     }
 }
