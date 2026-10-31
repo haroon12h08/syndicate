@@ -30,6 +30,8 @@ import StageHeader from '../components/StageHeader';
 import AuditTimeline from '../components/AuditTimeline';
 import ProvenanceDrawer from '../components/ProvenanceDrawer';
 import AiSuggestionsPanel from '../components/AiSuggestionsPanel';
+import CapTableWorkbench from '../components/CapTableWorkbench';
+import RegistersPanel from '../components/RegistersPanel';
 import TransactionSearchModal from '../components/TransactionSearchModal';
 import { TRANSACTION_ROLES, WORKSTREAM_TYPES, humanize } from '../constants';
 
@@ -37,6 +39,8 @@ const SIGNER_ROLES = ['ISSUER_ADMIN', 'LEAD_BANKER'];
 
 const TABS = [
   { key: 'overview', label: 'Overview' },
+  { key: 'captable', label: 'Cap Table' },
+  { key: 'registers', label: 'Registers' },
   { key: 'suggestions', label: 'AI Suggestions' },
   { key: 'documents', label: 'Documents' },
   { key: 'diligence', label: 'Diligence' },
@@ -531,6 +535,14 @@ export default function TransactionDetailPage() {
           onEvaluate={handleEvaluateReadiness}
           evaluating={evaluating}
         />
+      )}
+
+      {tab === 'captable' && (
+        <CapTableWorkbench transactionId={id} />
+      )}
+
+      {tab === 'registers' && (
+        <RegistersPanel transactionId={id} workstreamId={workstreams[0]?.id} />
       )}
 
       {tab === 'suggestions' && (

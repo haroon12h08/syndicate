@@ -9,5 +9,7 @@ import java.util.UUID;
 public interface RuleEvaluationRepository extends JpaRepository<RuleEvaluation, UUID> {
     List<RuleEvaluation> findByTransactionId(UUID transactionId);
 
+    List<RuleEvaluation> findByTransactionIdAndEntityTypeAndEntityId(UUID transactionId, String entityType, UUID entityId);
+
     Optional<RuleEvaluation> findByTransactionIdAndRuleId(UUID transactionId, UUID ruleId);
 }

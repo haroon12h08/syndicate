@@ -28,6 +28,10 @@ import com.syndicate.review.ReviewService;
 import com.syndicate.review.dto.MissingReviewDto;
 import com.syndicate.transaction.TransactionService;
 import com.syndicate.workstream.WorkstreamType;
+import com.syndicate.litigation.LitigationCase;
+import com.syndicate.litigation.LitigationCaseRepository;
+import com.syndicate.contract.MaterialContract;
+import com.syndicate.contract.MaterialContractRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -61,12 +65,16 @@ public class WorkbenchService {
     private final ReviewService reviewService;
     private final DiligenceQuestionRepository questionRepository;
     private final com.syndicate.observation.RegulatoryObservationRepository observationRepository;
+    private final LitigationCaseRepository litigationCaseRepository;
+    private final MaterialContractRepository materialContractRepository;
 
     public WorkbenchService(TransactionService transactionService, FactRepository factRepository,
                             FactConflictRepository conflictRepository, RuleEvaluationRepository ruleEvaluationRepository,
                             DisclosureRepository disclosureRepository, DrhpDocumentRepository drhpRepository,
                             ReviewService reviewService, DiligenceQuestionRepository questionRepository,
-                            com.syndicate.observation.RegulatoryObservationRepository observationRepository) {
+                            com.syndicate.observation.RegulatoryObservationRepository observationRepository,
+                            LitigationCaseRepository litigationCaseRepository,
+                            MaterialContractRepository materialContractRepository) {
         this.transactionService = transactionService;
         this.factRepository = factRepository;
         this.conflictRepository = conflictRepository;
@@ -76,6 +84,8 @@ public class WorkbenchService {
         this.reviewService = reviewService;
         this.questionRepository = questionRepository;
         this.observationRepository = observationRepository;
+        this.litigationCaseRepository = litigationCaseRepository;
+        this.materialContractRepository = materialContractRepository;
     }
 
     @Transactional(readOnly = true)
@@ -232,6 +242,26 @@ public class WorkbenchService {
             blockers.add(new BlockerDto("REVIEW_MISSING", BlockerSeverity.AWAITING_REVIEW, "FACT", missing.factId(),
                     missing.label(), missing.materiality() + " fact lacks a current review from "
                     + missing.requiredRole(), "Review the current version", missing.requiredRole().name()));
+        }
+
+        // Domain Registers Blockers (Phase C)
+        for (LitigationCase lc : litigationCaseRepository.findByTransactionId(transactionId)) {
+            boolean isPending = "PENDING".equalsIgnoreCase(lc.getStatus()) || "APPEAL_PREFERRED".equalsIgnoreCase(lc.getStatus());
+            if ("CRIMINAL_PROCEEDING".equalsIgnoreCase(lc.getCategory()) && isPending) {
+                blockers.add(new BlockerDto("PENDING_CRIMINAL_LITIGATION", BlockerSeverity.BLOCKING, "LITIGATION",
+                        lc.getId(), "Pending criminal proceeding: " + lc.getCaseTitle(),
+                        "SEBI ICDR Schedule VI prohibits unaddressed pending criminal proceedings against " + lc.getEntityName(),
+                        "Obtain legal opinion or disposal order", "LEAD_LAWYER"));
+            }
+        }
+
+        for (MaterialContract mc : materialContractRepository.findByTransactionId(transactionId)) {
+            if (mc.isHasChangeOfControl() && !mc.isChangeOfControlConsentObtained()) {
+                blockers.add(new BlockerDto("CONTRACT_COC_CONSENT_PENDING", BlockerSeverity.BLOCKING, "CONTRACT",
+                        mc.getId(), "Change of Control consent pending: " + mc.getTitle(),
+                        "Contract with " + mc.getCounterpartyName() + " contains a change of control clause requiring prior written consent",
+                        "Obtain executed CoC consent waiver", "LEAD_LAWYER"));
+            }
         }
 
         blockers.sort(Comparator.comparing(BlockerDto::severity).thenComparing(BlockerDto::type));

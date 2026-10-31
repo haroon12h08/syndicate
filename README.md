@@ -221,13 +221,13 @@ cannot be stored and then silently never processed.
 
 | Layer | Technology | Notes |
 |-------|-----------|-------|
-| API, domain, workers | Java 17, Spring Boot 3.3 | Single process; 43 modules under `com.syndicate` |
-| Persistence | PostgreSQL 16, Flyway | 29 migrations, `V1`–`V29`; GIN full-text search indexing; `ddl-auto=validate` |
+| API, domain, workers | Java 17, Spring Boot 3.3 | Single process; 46 modules under `com.syndicate` |
+| Persistence | PostgreSQL 16, Flyway | 31 migrations, `V1`–`V31`; GIN full-text search indexing; `ddl-auto=validate` |
 | Extraction & AI | Apache PDFBox, Tesseract OCR, Claude 3.5 | Text layer first, OCR fallback, AI extraction, suggestions & drafting bounded by Zero AI Authority |
 | Storage & Security | Filesystem, AWS S3/MinIO, TOTP, ClamAV | Plug-and-play S3 object storage; TOTP MFA (RFC 6238); Brute-force lockout; Malware scanning |
 | Observability | Micrometer, Prometheus, Actuator | Production Prometheus metrics export (`/actuator/prometheus`) tracking auth, compilation & audit health |
 | Document Rendering | OpenPDF, Apache POI | SEBI-compliant PDF and DOCX export with cryptographic provenance stamps |
-| Front end | React 19, Vite 8, PDF.js | High-DPI canvas PDF viewer with SVG bounding-box highlights, MFA settings & TOTP login; compiled into API |
+| Front end | React 19, Vite 8, PDF.js | High-DPI canvas PDF viewer with SVG bounding-box highlights, MFA settings, Cap Table & Registers; compiled into API |
 | Packaging | Docker, Compose | Two containers: the product and its database |
 
 ### 4.2 Module map
@@ -236,8 +236,8 @@ cannot be stored and then silently never processed.
 |------|---------|
 | Evidence and ingestion | `evidence` (incl. `scanner`, `storage`), `ingestion`, `candidatefact`, `jobs` |
 | AI and Intelligence | `ai.artifact`, `ai.llm`, `ai.classification`, `ai.extraction`, `ai.runs`, `ai.suggestion`, `ai.drafting` |
-| Transaction truth | `fact`, `conflict`, `review`, `graph` |
-| Diligence and control | `diligence`, `workbench`, `regulatory`, `issue`, `task` |
+| Transaction truth & Capital structure | `fact`, `conflict`, `review`, `graph`, `captable` |
+| Governance registers & Diligence control | `rpt`, `litigation`, `contract`, `diligence`, `workbench`, `regulatory`, `issue`, `task` |
 | Output and Exports | `drhp` (incl. `render`), `provenance`, `filing` (incl. `resubmission`), `observation`, `lifecycle` |
 | Identity and access | `auth` (incl. `totp`), `user`, `organization`, `transaction`, `permission`, `invitation` |
 | Cross-cutting | `search`, `metrics`, `audit`, `notification`, `registry`, `common`, `stream`, `onboarding` |
@@ -246,11 +246,11 @@ cannot be stored and then silently never processed.
 
 | Measure | Value |
 |---------|-------|
-| Backend source files | 357 |
-| HTTP endpoints | 142 |
-| Database migrations | 29 |
-| Front-end source files | 74 |
-| Automated tests | 171 (37 unit, 134 integration) |
+| Backend source files | 422 |
+| HTTP endpoints | 157 |
+| Database migrations | 31 |
+| Front-end source files | 78 |
+| Automated tests | 182 (46 unit, 136 integration) |
 
 ---
 
@@ -419,7 +419,50 @@ Operating in institutional investment banking and transaction advisory demands e
 - **Observability & Prometheus Metrics**: Spec §52, Ticket H3. Real-time telemetry via Spring Boot Actuator (`/actuator/prometheus`), tracking authentication attempts, lockouts, evidence processing latency, compile durations, and audit write integrity.
 - **20-Person Core Advisory Workflow**: Full operational hierarchy and execution manual for multidisciplinary capital markets teams (Financial Diligence, Corporate Law, Litigation, Cap Table, Drafting) is documented in [`docs/KPMG_20_PERSON_IPO_WORKFLOW.md`](docs/KPMG_20_PERSON_IPO_WORKFLOW.md).
 
-### 5.18 Demonstration
+### 5.18 Transaction domain depth & statutory governance registers (Phase C)
+
+Real-world capital markets execution requires deep, evidence-grounded domain models for capital structure and governance that connect directly to transaction facts, conflict detection, and DRHP disclosures (Spec §20, §21, §22, §23, Tickets C3, C6, C7, D1):
+
+#### 5.18.1 Continuous Cap Table & Dilution Engine
+- **Event Replay & Historical Reconstruction**: Rather than maintaining a static snapshot of shareholders, the engine (`HoldingsReplayEngine`) replays the full corporate action event log chronologically (`INCORPORATION`, `ALLOTMENT_PRIMARY`, `ALLOTMENT_PREFERENTIAL`, `BONUS_ISSUE`, `SHARE_SPLIT`, `TRANSFER`, `CONVERSION`, `BUYBACK`). Any historical date query `asOf(date)` reconstructs exact basic and fully diluted ownership at that instant.
+- **Convertibles & Fully Diluted Ownership**: Directly models complex hybrid instruments (Series A/B CCPS, Convertible Debentures CCD, Warrants, and ESOP trust pools) with custom conversion ratios, calculating both pre-issue diluted capital and post-issue diluted capital.
+- **Fresh Issue vs. Offer for Sale (OFS)**: Separates primary capital expansion (newly issued shares augmenting paid-up equity) from secondary transfers (existing promoter or investor shares sold to public without increasing total equity).
+- **Overdraft & Transfer Invariant Protection**: Transfer and buyback corporate actions enforce strictly verified share balances; overdraft attempts reject immediately with immutable validation errors.
+
+<p align="center"><img src="docs/assets/figures/phase-c-captable-workbench.png" alt="Cap Table & Dilution Engine Workbench" width="860"></p>
+<p align="center"><em><strong>Figure 18.</strong> Cap Table workbench displaying basic vs. fully diluted shareholding, post-issue capital structure, and 20% Minimum Promoters' Contribution (MPC) compliance status.</em></p>
+
+#### 5.18.2 SEBI ICDR 2025 Tiered Promoter Lock-in Schedule
+- **2025 Regulatory Amendment (Regulation 238)**: Minimum Promoters' Contribution (MPC, 20% of post-issue capital) is locked in for 3 years (`PROMOTER_MINIMUM_CONTRIBUTION_3YR`). Promoters' holding in excess of MPC is locked under the 2025 statutory tiered schedule: 50% for 2 years (`PROMOTER_EXCESS_2YR`) and the remaining 50% for 1 year (`PROMOTER_EXCESS_1YR`).
+- **Pre-Issue Non-Promoter Capital (Regulation 239)**: All pre-issue non-promoter equity is locked for 1 year from expected allotment date (`PRE_ISSUE_NON_PROMOTER_1YR`), with automated verification of statutory exemptions (`ESOP_EXEMPTION`, `AIF_VCF_LOOKBACK_EXEMPTION`, `CONTINUITY_TRANSFER_EXEMPTION`).
+- **Deterministic Regulatory Audit Trail**: Every calculation generates an immutable `RuleEvaluation` audit record storing rule citation, version, effective date, inputs snapshot, and calculation outcome.
+
+<p align="center"><img src="docs/assets/figures/phase-c-lockin-schedule.png" alt="SEBI ICDR 2025 Tiered Lock-In Schedule" width="860"></p>
+<p align="center"><em><strong>Figure 19.</strong> SEBI ICDR Regulation 238 (2025 amendment) tiered lock-in schedule with 3-year MPC, 2-year and 1-year excess tiers, and Regulation 239 non-promoter exemptions.</em></p>
+
+#### 5.18.3 Decoupled Statutory Related Party Transactions (RPT) Register
+- **Companies Act 2013 §188 vs. SEBI LODR Regulation 23**: Universal 10% thresholds are decoupled. Companies Act §188 applicability excludes transactions entered in the ordinary course of business on an arm's length basis (statutory second proviso). Conversely, SEBI LODR Regulation 23 requires prior Audit Committee approval for all RPTs, and applies materiality thresholds based on the lower of ₹1,000 Crore or 10% of annual consolidated turnover (5% for brand/royalty).
+- **Four-Eyes Human Confirmation**: Candidate related parties identified through AI or corporate records are flagged as suggested and require explicit human confirmation (`confirmParty`) before entering the official disclosure register.
+
+<p align="center"><img src="docs/assets/figures/phase-c-registers-rpt.png" alt="Related Party Transactions Register" width="860"></p>
+<p align="center"><em><strong>Figure 20.</strong> RPT ledger with ordinary course / arm's length determinations, Audit Committee approvals, and CA §188 vs. SEBI LODR 23 materiality evaluations.</em></p>
+
+#### 5.18.4 Multidimensional Litigation & Legal Proceedings Register
+- **SEBI ICDR Schedule VI Categorization**: Distinguishes mandatory disclosure classes (criminal proceedings, regulatory/statutory actions by SEBI/RBI/MCA, exchange disciplinary actions) from financial exposure disputes (Direct Tax, Indirect Tax, and Material Civil Suits).
+- **Multidimensional Materiality Criteria**: Civil litigation is evaluated against issuer Board Materiality Policy thresholds (claimed exposure ≥ 5% of Net Worth or ≥ 2% of Turnover) as well as qualitative operational risk criteria (e.g. `MANAGEMENT_DISQUALIFICATION` or `PERMIT_REVOCATION`).
+- **Diligence Blocker Integration**: Pending criminal proceedings against the issuer, promoters, or directors automatically surface as blocking issues on the Diligence Workbench.
+
+<p align="center"><img src="docs/assets/figures/phase-c-registers-litigation.png" alt="Litigation & Disputes Register" width="860"></p>
+<p align="center"><em><strong>Figure 21.</strong> Litigation register tracking criminal, regulatory, tax, and civil cases with claimed exposure, contingent liabilities, and materiality criteria.</em></p>
+
+#### 5.18.5 Material Commercial Contracts Screening & Change of Control Tracking
+- **Screening Indicators vs. Statutory Mandates**: Customer and vendor concentrations (≥ 10% of annual revenue or supplies) are treated as screening indicators for DRHP risk factors, rather than rigid universal definitions.
+- **Change of Control (CoC) Covenants**: Automatically audits executed contracts for Change of Control clauses that require lender or counterparty written consent prior to IPO allotment. Unobtained consents immediately register as blocking issues (`CONTRACT_COC_CONSENT_PENDING`) on the Diligence Workbench.
+
+<p align="center"><img src="docs/assets/figures/phase-c-registers-contracts.png" alt="Material Commercial Contracts Register" width="860"></p>
+<p align="center"><em><strong>Figure 22.</strong> Material contracts screening register tracking customer/vendor concentrations (≥ 10%), exclusivity covenants, and Change of Control consents.</em></p>
+
+### 5.19 Demonstration
 
 A walkthrough of the above, recorded against the running system, is produced by
 [`demo/record-demo.mjs`](demo/record-demo.mjs); the narration is in
@@ -437,10 +480,10 @@ and transaction boundaries as a user.
 
 | Layer | Count | What it covers |
 |-------|-------|----------------|
-| Unit | 37 | Value normalisation, PDF geometry, OCR parsing, readiness derivation, checksums, document rendering, AI architecture |
-| Integration | 134 | Every workflow through the API, against real Postgres |
+| Unit | 46 | Cap table event replay, 2025 SEBI ICDR lock-in calculation, CA §188 vs SEBI LODR 23 materiality, litigation criteria, PDF geometry, OCR parsing, readiness derivation, checksums, document rendering, AI architecture |
+| Integration | 136 | Every workflow through the API, against real Postgres (incl. Cap Table & dilution engine, domain registers, diligence workbench blockers) |
 | — of which security | 20 | Cross-organisation isolation, role matrix (12 roles), sessions, TOTP MFA, account lockout, upload malware safety |
-| — of which end-to-end | 3 | Golden path, filing package, lifecycle |
+| — of which end-to-end | 4 | Golden path, filing package, lifecycle, cap table reconciliation |
 | — of which AI & invariants | 25 | Zero AI Authority, AI artifact provenance, suggestions pre-conflicts & gap audits, candidate boundaries, spatial grounding, AI drafting |
 
 ```bash
@@ -455,6 +498,7 @@ cd frontend && npm run lint && npm run build
 | P1 Preserve the source | `EvidenceCustodyIT` — versioning, archival refusal while referenced, integrity re-hash |
 | P2 Observation ≠ truth (Zero AI Authority) | `CandidateBoundaryIT` — acceptance yields a draft fact, never a verified one; `AiArchitectureTest` — ArchUnit enforces zero AI write paths to verified state; `AiArtifactProvenanceIT` — immutable prompt SHA-256 and token economics; `AiIntelligenceLayerIT` — candidate fact extraction, pre-conflicts, drafting bounds |
 | P3 Second pair of eyes | `CandidateBoundaryIT` — service refusal *and* a `CHECK` constraint |
+| P4 Transaction Domain Truth | `CapTableEngineTest`, `CapTableAndRegistersIT` — continuous point-in-time holdings replay, overdraft protection, 2025 amended SEBI ICDR lock-in tiers, fact divergence detection (`FactConflict`), CA §188 vs SEBI LODR 23 decoupling, mandatory litigation blockers |
 | P4 No silent resolution | `OwnershipConflictIT` — the full §65 scenario, including reopening |
 | P5 Versioning | `FactSemanticKeyIT`, `ConcurrentCorrectionIT` — lineage kept; racing corrections cannot both win |
 | P6/P7 Dependencies and staleness | `ChangePropagationIT`, `ImpactPreviewIT` |

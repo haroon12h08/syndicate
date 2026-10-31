@@ -69,7 +69,30 @@ public class RegulatoryRule extends BaseEntity {
     @Column(nullable = false)
     private boolean active;
 
+    @Column(name = "rule_type", nullable = false)
+    private String ruleType = "FACT_CHECK";
+
+    @Column(name = "parameter_spec", columnDefinition = "jsonb")
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.JSON)
+    private String parameterSpec = "{}";
+
     protected RegulatoryRule() {
+    }
+
+    public String getRuleType() {
+        return ruleType;
+    }
+
+    public void setRuleType(String ruleType) {
+        this.ruleType = ruleType;
+    }
+
+    public String getParameterSpec() {
+        return parameterSpec;
+    }
+
+    public void setParameterSpec(String parameterSpec) {
+        this.parameterSpec = parameterSpec;
     }
 
     public String getCode() {

@@ -44,6 +44,19 @@ public class RuleEvaluation extends BaseEntity {
     @Column(name = "evaluated_at", nullable = false)
     private Instant evaluatedAt;
 
+    @Column(name = "entity_type")
+    private String entityType;
+
+    @Column(name = "entity_id")
+    private java.util.UUID entityId;
+
+    @Column(name = "inputs_snapshot", columnDefinition = "jsonb")
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.JSON)
+    private String inputsSnapshot;
+
+    @Column(name = "formula_expression")
+    private String formulaExpression;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "generated_issue_id")
     private Issue generatedIssue;
@@ -64,6 +77,28 @@ public class RuleEvaluation extends BaseEntity {
         this.rule = rule;
         this.status = RuleEvaluationStatus.NOT_APPLICABLE;
         this.evaluatedAt = Instant.now();
+    }
+
+    public RuleEvaluation(Transaction transaction, RegulatoryRule rule, RuleEvaluationStatus status,
+                          String actualValue, String detail) {
+        this.transaction = transaction;
+        this.rule = rule;
+        this.status = status != null ? status : RuleEvaluationStatus.NOT_APPLICABLE;
+        this.actualValue = actualValue;
+        this.detail = detail;
+        this.evaluatedAt = Instant.now();
+    }
+
+    public void setStatus(RuleEvaluationStatus status) {
+        this.status = status;
+    }
+
+    public void setActualValue(String actualValue) {
+        this.actualValue = actualValue;
+    }
+
+    public void setDetail(String detail) {
+        this.detail = detail;
     }
 
     public void record(RuleEvaluationStatus status, String actualValue, String detail,
@@ -98,6 +133,38 @@ public class RuleEvaluation extends BaseEntity {
 
     public Instant getEvaluatedAt() {
         return evaluatedAt;
+    }
+
+    public String getEntityType() {
+        return entityType;
+    }
+
+    public void setEntityType(String entityType) {
+        this.entityType = entityType;
+    }
+
+    public java.util.UUID getEntityId() {
+        return entityId;
+    }
+
+    public void setEntityId(java.util.UUID entityId) {
+        this.entityId = entityId;
+    }
+
+    public String getInputsSnapshot() {
+        return inputsSnapshot;
+    }
+
+    public void setInputsSnapshot(String inputsSnapshot) {
+        this.inputsSnapshot = inputsSnapshot;
+    }
+
+    public String getFormulaExpression() {
+        return formulaExpression;
+    }
+
+    public void setFormulaExpression(String formulaExpression) {
+        this.formulaExpression = formulaExpression;
     }
 
     public Issue getGeneratedIssue() {
