@@ -32,6 +32,7 @@ import ProvenanceDrawer from '../components/ProvenanceDrawer';
 import AiSuggestionsPanel from '../components/AiSuggestionsPanel';
 import CapTableWorkbench from '../components/CapTableWorkbench';
 import RegistersPanel from '../components/RegistersPanel';
+import RegulatoryWorkbench from '../components/RegulatoryWorkbench';
 import TransactionSearchModal from '../components/TransactionSearchModal';
 import { TRANSACTION_ROLES, WORKSTREAM_TYPES, humanize } from '../constants';
 
@@ -41,6 +42,7 @@ const TABS = [
   { key: 'overview', label: 'Overview' },
   { key: 'captable', label: 'Cap Table' },
   { key: 'registers', label: 'Registers' },
+  { key: 'regulatory', label: 'Regulatory Engine' },
   { key: 'suggestions', label: 'AI Suggestions' },
   { key: 'documents', label: 'Documents' },
   { key: 'diligence', label: 'Diligence' },
@@ -442,7 +444,14 @@ export default function TransactionDetailPage() {
         <div><strong>Company</strong><span>{transaction.companyName}</span></div>
         <div><strong>Lead organization</strong><span><Link to={`/organizations/${transaction.leadOrganizationId}`}>{transaction.leadOrganizationName}</Link></span></div>
         <div><strong>Type</strong><span>{humanize(transaction.type)}</span></div>
-
+        {transaction.lifecycleState && (
+          <div>
+            <strong>Lifecycle Stage</strong>
+            <span className="badge badge-complete" style={{ display: 'inline-block', fontWeight: 600 }}>
+              {humanize(transaction.lifecycleState)}
+            </span>
+          </div>
+        )}
       </div>
       <StageHeader
         stage={stage}
@@ -543,6 +552,10 @@ export default function TransactionDetailPage() {
 
       {tab === 'registers' && (
         <RegistersPanel transactionId={id} workstreamId={workstreams[0]?.id} />
+      )}
+
+      {tab === 'regulatory' && (
+        <RegulatoryWorkbench transactionId={id} onStateChange={load} />
       )}
 
       {tab === 'suggestions' && (

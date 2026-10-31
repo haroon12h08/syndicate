@@ -3,6 +3,7 @@ package com.syndicate.transaction;
 import com.syndicate.common.BaseEntity;
 import com.syndicate.company.Company;
 import com.syndicate.organization.Organization;
+import com.syndicate.regulatory.engine.TransactionLifecycleState;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -36,6 +37,10 @@ public class Transaction extends BaseEntity {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private TransactionStatus status;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "lifecycle_state", nullable = false)
+    private TransactionLifecycleState lifecycleState = TransactionLifecycleState.DRAFT;
 
     protected Transaction() {
     }
@@ -81,5 +86,13 @@ public class Transaction extends BaseEntity {
 
     public void setStatus(TransactionStatus status) {
         this.status = status;
+    }
+
+    public TransactionLifecycleState getLifecycleState() {
+        return lifecycleState != null ? lifecycleState : TransactionLifecycleState.DRAFT;
+    }
+
+    public void setLifecycleState(TransactionLifecycleState lifecycleState) {
+        this.lifecycleState = lifecycleState;
     }
 }

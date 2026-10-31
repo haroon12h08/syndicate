@@ -1,5 +1,6 @@
 package com.syndicate.transaction.dto;
 
+import com.syndicate.regulatory.engine.TransactionLifecycleState;
 import com.syndicate.transaction.Transaction;
 import com.syndicate.transaction.TransactionStatus;
 import com.syndicate.transaction.TransactionType;
@@ -14,7 +15,8 @@ public record TransactionDto(
         String leadOrganizationName,
         TransactionType type,
         String name,
-        TransactionStatus status
+        TransactionStatus status,
+        TransactionLifecycleState lifecycleState
 ) {
     public static TransactionDto from(Transaction transaction) {
         return new TransactionDto(
@@ -25,7 +27,8 @@ public record TransactionDto(
                 transaction.getLeadOrganization().getName(),
                 transaction.getType(),
                 transaction.getName(),
-                transaction.getStatus()
+                transaction.getStatus(),
+                transaction.getLifecycleState()
         );
     }
 }

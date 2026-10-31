@@ -462,7 +462,62 @@ Real-world capital markets execution requires deep, evidence-grounded domain mod
 <p align="center"><img src="docs/assets/figures/phase-c-registers-contracts.png" alt="Material Commercial Contracts Register" width="860"></p>
 <p align="center"><em><strong>Figure 22.</strong> Material contracts screening register tracking customer/vendor concentrations (≥ 10%), exclusivity covenants, and Change of Control consents.</em></p>
 
-### 5.19 Demonstration
+### 5.19 Regulatory Engine, Pinned Snapshots & Transaction State Machine (Phase D)
+
+To ensure institutional compliance and deterministic auditability, Syndicate implements a versioned statutory regulatory engine and formal state machine lifecycle (Spec §13, §37, §38, §39, §57, Tickets D1–D6):
+
+#### 5.19.1 Requirements as Data & Authoritative Sourcing (Ticket D1)
+- **Official Statutory Citations**: Regulatory rules are first-class versioned database entities (`Requirement` & `RequirementVersion`) capturing statutory citation, governing authority (SEBI, BSE, NSE, MCA, or INTERNAL_POLICY), jurisdiction, and official publication URLs.
+- **Strict Sourcing Boundary (`UNSOURCED`)**: Any rule check authored without a verified official authority URL is explicitly marked `UNSOURCED`. Unverified checks can never be displayed or represented as statutory truth.
+- **Effective Date Windows**: Rules define `effective_from` and `effective_to` intervals, ensuring amendments (such as the SEBI ICDR 2025 promoter lock-in changes) apply only to transactions falling within their valid legal window.
+
+<p align="center"><img src="docs/assets/figures/phase-d-regulatory-workbench.png" alt="Regulatory Engine & Governance Workbench" width="860"></p>
+<p align="center"><em><strong>Figure 23.</strong> Regulatory Workbench displaying 14-stage state machine lifecycle pipeline, pinned statutory snapshot metadata, drift detection banner, and controls matrix.</em></p>
+
+#### 5.19.2 Deterministic Controls & Invariant 18 / §13 Boundary (Ticket D2)
+- **Deterministic Control Execution**: Rules are evaluated deterministically against current transaction facts, cap table holdings, RPT governance ledgers, litigation registers, and material contracts.
+- **Zero Legal Advice Guarantee (Invariant 18 / §13)**: The engine never declares legal compliance and strictly forbids promissory wording (e.g. "compliant with SEBI", "SEBI will approve"). All automated evaluation explanations strictly adhere to the mandatory formula:
+  > `"Based on configured rule {code} v{version} and current data, evaluates to {STATUS}. {detail}"`
+- **Full Traceability**: Every evaluation stores an immutable JSON snapshot of all inputs consumed, the exact expression evaluated, result values, and timestamp.
+
+<p align="center"><img src="docs/assets/figures/phase-d-control-inspection.png" alt="Control Inputs & Rule Expression Inspector" width="860"></p>
+<p align="center"><em><strong>Figure 24.</strong> Inspector modal displaying captured input data, evaluated rule expressions, statutory citations, and remediation guides.</em></p>
+
+#### 5.19.3 Transaction-Level Regulatory Snapshots & Drift Detection (Ticket D3)
+- **Rule-Set Pinning**: Transactions are pinned to a specific snapshot of requirement versions upon creation (`RegulatorySnapshot`). Because public issue preparations span months or quarters, underlying statutory amendments cannot silently mutate a deal's established compliance requirements.
+- **Continuous Drift Detection**: A background drift detector (`SnapshotDriftDto`) cross-references the transaction's pinned requirement versions against the latest active registry versions. When statutory amendments occur, an explicit drift alert notifies deal leads.
+- **Audited Opt-In Snapshot Upgrade**: Deal leads can deliberately upgrade pinned snapshots to newer standards (`upgradeSnapshot`) with an immutable audit event recording who authorized the upgrade and why.
+
+#### 5.19.4 Four-Eyes Governance & Executable Test Fixtures (Ticket D4)
+- **Author ≠ Approver Separation**: Requirements and controls enforce strict maker-checker segregation (`RULE_AUTHOR` vs. `RULE_APPROVE`). An author cannot approve their own rule version (`ForbiddenException` enforced).
+- **Executable Test Fixtures Required**: Before any requirement version can be submitted or approved, it must execute and pass its attached test case fixtures (`RequirementTestCase`) against deterministic mock inputs.
+- **Immutability Once Pinned**: Once a requirement version is pinned to any active transaction snapshot, its definition and expression become immutable; updates require creating a new incremental version number.
+
+<p align="center"><img src="docs/assets/figures/phase-d-governance-center.png" alt="Rule Governance & Testing Center" width="860"></p>
+<p align="center"><em><strong>Figure 25.</strong> Rule Governance Center with authoritative requirement versions, official source citations, test fixture runner, and four-eyes author/approver tracking.</em></p>
+
+#### 5.19.5 Transparent Four-Eyes Regulatory Exceptions (Ticket D5)
+- **Formal Exception Ledger**: When an edge case or waiver arises, deal teams cannot modify underlying facts or bypass checks. Instead, they file a formal `RegulatoryException` specifying the affected lifecycle stage, risk classification (`LOW`, `MEDIUM`, `HIGH`, `CRITICAL`), expiry date, and mandatory mitigation plan.
+- **Four-Eyes Approval**: Exceptions require independent approval (`REGULATORY_EXCEPTION_APPROVE`) by an authorized merchant banker or issuer lead who is not the exception requester.
+- **Preserved Truth**: When approved, the control status displays as `EXCEPTION` (overriding `FAIL` for state transition gating) while retaining the underlying factual calculation and explanation intact.
+
+<p align="center"><img src="docs/assets/figures/phase-d-exception-modal.png" alt="Four-Eyes Regulatory Exception Request Modal" width="860"></p>
+<p align="center"><em><strong>Figure 26.</strong> Four-eyes regulatory exception request modal requiring risk classification, affected lifecycle stage, expiry date, and mitigation plan.</em></p>
+
+#### 5.19.6 Transaction State Machine & Precondition Blocker Validation (Ticket D6)
+- **14-Stage Lifecycle Graph**: Enforces the canonical capital markets deal progression:
+  ```
+  DRAFT → ACTIVE → DUE_DILIGENCE → READINESS_REVIEW → DOCUMENT_PREPARATION →
+  INTERNAL_APPROVAL → FILING_READY → FILED → OBSERVATIONS → RESPONSE →
+  RESUBMISSION → ISSUE_PREPARATION → LISTED
+  ```
+- **Precondition Blocker Checking**: Stage transitions validate all regulatory controls and prerequisites. Transitions fail closed if any blocking controls are `FAIL` or `MISSING`, unless covered by an active approved regulatory exception.
+- **Transition History Snapshot**: Every transition records an immutable audit log (`TransactionLifecycleTransition`) containing the transitioning actor, reason, and complete JSON snapshots of all blockers and active exceptions at that exact moment.
+
+<p align="center"><img src="docs/assets/figures/phase-d-transition-modal.png" alt="State Machine Transition & Blocker Modal" width="860"></p>
+<p align="center"><em><strong>Figure 27.</strong> Transaction State Machine transition modal performing real-time precondition verification and authorized exception overrides.</em></p>
+
+### 5.20 Demonstration
 
 A walkthrough of the above, recorded against the running system, is produced by
 [`demo/record-demo.mjs`](demo/record-demo.mjs); the narration is in
@@ -607,10 +662,9 @@ In the order it is likely to be worth doing — the full plan is in
 [`docs/plans/`](docs/plans/2026-09-21-syndicate-v2-build-plan.md):
 
 1. Production hardening (§7.3) before any public deployment.
-2. First-class capital structure, related parties, litigation and material contracts.
+2. [Complete — Phase C] First-class capital structure, related parties, litigation and material contracts.
 3. Claims and calculated facts with recorded formulas and stale recomputation.
-4. Versioned regulatory requirements with sourced citations, effective dates and transaction-level
-   rule-set pinning.
+4. [Complete — Phase D] Versioned regulatory requirements with sourced citations, effective dates, transaction-level rule-set pinning, and 14-stage state machine governance.
 5. Multi-model consensus and automated tabular cross-reconciliation across disparate auditor reports.
 
 ---
@@ -674,6 +728,16 @@ start.sh     One command: build, migrate, run, verify
 | `GET`  | `/api/ai/provenance/metrics` | Aggregate AI token economics, costs, and run counts |
 | `GET`  | `/api/filing/packages/{id}/diff/{otherId}` | Diff two filing packages and generate Statement of Changes |
 | `GET`  | `/api/transactions/{id}/audit/verify` | Recompute the audit chain |
+| `GET`  | `/api/transactions/{id}/regulatory/snapshot` | Pinned statutory regulatory snapshot and effective date |
+| `POST` | `/api/transactions/{id}/regulatory/snapshot/upgrade` | Upgrade pinned snapshot to latest statutory requirement versions |
+| `GET`  | `/api/transactions/{id}/regulatory/evaluations` | Deterministic control evaluations with Invariant 18 explanations |
+| `POST` | `/api/transactions/{id}/regulatory/evaluate` | Deterministically evaluate all active statutory controls |
+| `POST` | `/api/transactions/{id}/regulatory/exceptions` | Request formal four-eyes regulatory exception with mitigation plan |
+| `POST` | `/api/regulatory/exceptions/{id}/approve` | Four-eyes independent approval of regulatory exception |
+| `GET`  | `/api/regulatory/requirements` | Registry of statutory requirements with legal citations and URLs |
+| `POST` | `/api/regulatory/requirements` | Author new statutory requirement version with test case fixtures |
+| `GET`  | `/api/transactions/{id}/lifecycle/check` | Check real-time state machine precondition blockers |
+| `POST` | `/api/transactions/{id}/lifecycle/transition` | Execute 14-stage state machine transition with exception overrides |
 
 ## Appendix C — Glossary
 

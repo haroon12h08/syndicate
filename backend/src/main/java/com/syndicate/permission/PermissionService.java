@@ -30,15 +30,25 @@ public class PermissionService {
         }
         TRANSACTION_ROLE_PERMISSIONS.put(TransactionRole.ISSUER_ADMIN, EnumSet.of(
                 Permission.TRANSACTION_MEMBERSHIP_MANAGE, Permission.TRANSACTION_INVITATION_SEND,
-                Permission.TRANSACTION_STATUS_TRANSITION, Permission.FACT_VERIFY_FINANCIAL));
+                Permission.TRANSACTION_STATUS_TRANSITION, Permission.FACT_VERIFY_FINANCIAL,
+                Permission.RULE_AUTHOR, Permission.REGULATORY_EXCEPTION_REQUEST, Permission.REGULATORY_EXCEPTION_APPROVE));
         TRANSACTION_ROLE_PERMISSIONS.put(TransactionRole.LEAD_BANKER, EnumSet.of(
                 Permission.TRANSACTION_MEMBERSHIP_MANAGE, Permission.TRANSACTION_INVITATION_SEND,
-                Permission.TRANSACTION_STATUS_TRANSITION, Permission.CONFLICT_RESOLVE));
-        TRANSACTION_ROLE_PERMISSIONS.put(TransactionRole.DUE_DILIGENCE_TEAM, EnumSet.of(Permission.CONFLICT_RESOLVE));
+                Permission.TRANSACTION_STATUS_TRANSITION, Permission.CONFLICT_RESOLVE,
+                Permission.RULE_AUTHOR, Permission.RULE_APPROVE,
+                Permission.REGULATORY_EXCEPTION_REQUEST, Permission.REGULATORY_EXCEPTION_APPROVE));
+        TRANSACTION_ROLE_PERMISSIONS.put(TransactionRole.DUE_DILIGENCE_TEAM, EnumSet.of(
+                Permission.CONFLICT_RESOLVE, Permission.REGULATORY_EXCEPTION_REQUEST));
         TRANSACTION_ROLE_PERMISSIONS.put(TransactionRole.AUDITOR, EnumSet.of(
-                Permission.FACT_VERIFY_FINANCIAL, Permission.CONFLICT_RESOLVE));
-        TRANSACTION_ROLE_PERMISSIONS.put(TransactionRole.LEAD_LAWYER, EnumSet.of(Permission.ISSUE_RESOLVE_LITIGATION));
-        TRANSACTION_ROLE_PERMISSIONS.put(TransactionRole.LEGAL_ASSOCIATE, EnumSet.of(Permission.ISSUE_RESOLVE_LITIGATION));
+                Permission.FACT_VERIFY_FINANCIAL, Permission.CONFLICT_RESOLVE,
+                Permission.RULE_AUTHOR, Permission.RULE_APPROVE));
+        TRANSACTION_ROLE_PERMISSIONS.put(TransactionRole.LEAD_LAWYER, EnumSet.of(
+                Permission.ISSUE_RESOLVE_LITIGATION,
+                Permission.RULE_AUTHOR, Permission.RULE_APPROVE,
+                Permission.REGULATORY_EXCEPTION_REQUEST, Permission.REGULATORY_EXCEPTION_APPROVE));
+        TRANSACTION_ROLE_PERMISSIONS.put(TransactionRole.LEGAL_ASSOCIATE, EnumSet.of(
+                Permission.ISSUE_RESOLVE_LITIGATION,
+                Permission.RULE_AUTHOR, Permission.REGULATORY_EXCEPTION_REQUEST));
     }
 
     /** Transaction roles whose sign-off is required for a top-level status transition (e.g. DRAFT -> ACTIVE). */
